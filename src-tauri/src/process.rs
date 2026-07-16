@@ -50,6 +50,8 @@ pub struct ProcessHandle {
     pid: Option<u32>,
     started_at: std::time::Instant,
     players: Vec<String>,
+    /// The software's graceful shutdown command ("stop", "end", …).
+    stop_command: &'static str,
 }
 
 /// One running server the stats sampler should measure.
@@ -117,6 +119,7 @@ pub async fn start(
         pid: child.id(),
         started_at: std::time::Instant::now(),
         players: Vec::new(),
+        stop_command: config.loader.stop_command(),
     };
     running_guard.insert(config.id.clone(), handle);
     drop(running_guard);
@@ -286,18 +289,18 @@ fn is_blockparty_java(
 /// Requests a graceful stop (`stop` command) and schedules a force-kill in
 /// case the server hangs on the way down.
 pub async fn stop(app: &AppHandle, running: &RunningMap, server_id: &str) -> AppResult<()> {
-    let command_tx = {
+    let (command_tx, stop_command) = {
         let mut running_guard = running.lock().await;
         let handle = running_guard
             .get_mut(server_id)
             .ok_or(AppError::ServerNotRunning)?;
         handle.stop_requested = true;
         handle.status = ServerStatus::Stopping;
-        handle.command_tx.clone()
+        (handle.command_tx.clone(), handle.stop_command)
     };
     emit_status(app, server_id, ServerStatus::Stopping);
 
-    let send_result = command_tx.send("stop".to_string()).await;
+    let send_result = command_tx.send(stop_command.to_string()).await;
     if send_result.is_err() {
         // The stdin writer already exited, which means the process is
         // already going down; the scheduled force-kill still applies.

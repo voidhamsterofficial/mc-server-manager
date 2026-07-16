@@ -19,6 +19,17 @@
   const status = $derived(serversStore.statusOf(server.id));
   const players = $derived(serversStore.playersOf(server.id));
   const canCommand = $derived(status === "running");
+  const isBedrock = $derived(server.loader === "bds");
+  // Bedrock calls it the allowlist; vanilla BDS has no ban/pardon commands.
+  const whitelistCommand = $derived(isBedrock ? "allowlist" : "whitelist");
+
+  /** Bedrock gamertags may contain spaces and need quoting in commands. */
+  function commandName(playerName: string): string {
+    if (isBedrock && playerName.includes(" ")) {
+      return `"${playerName}"`;
+    }
+    return playerName;
+  }
 
   $effect(() => {
     // Reload the history when opened, and keep it fresh as players come
@@ -60,7 +71,7 @@
     if (name === null) {
       return;
     }
-    sendPlayerCommand(`${commandPrefix} ${name}`, `${label} ${name} ✨`);
+    sendPlayerCommand(`${commandPrefix} ${commandName(name)}`, `${label} ${name} ✨`);
   }
 </script>
 
@@ -71,14 +82,19 @@
       <p class="hint">Works for offline players too — whitelist, pardon, and more.</p>
       <div class="manual-row">
         <input type="text" bind:value={manualName} placeholder="Player name…" spellcheck="false" />
-        <Button variant="soft" onclick={() => runManual("whitelist add", "Whitelisted")}>
+        <Button variant="soft" onclick={() => runManual(`${whitelistCommand} add`, "Whitelisted")}>
           ✅ Whitelist
         </Button>
-        <Button variant="ghost" onclick={() => runManual("whitelist remove", "Un-whitelisted")}>
+        <Button
+          variant="ghost"
+          onclick={() => runManual(`${whitelistCommand} remove`, "Un-whitelisted")}
+        >
           Remove
         </Button>
-        <Button variant="ghost" onclick={() => runManual("pardon", "Pardoned")}>🕊️ Pardon</Button>
-        <Button variant="danger" onclick={() => runManual("ban", "Banned")}>🔨 Ban</Button>
+        {#if !isBedrock}
+          <Button variant="ghost" onclick={() => runManual("pardon", "Pardoned")}>🕊️ Pardon</Button>
+          <Button variant="danger" onclick={() => runManual("ban", "Banned")}>🔨 Ban</Button>
+        {/if}
       </div>
     </div>
   {:else}
@@ -106,28 +122,32 @@
           <span class="player-actions">
             <Button
               variant="soft"
-              onclick={() => sendPlayerCommand(`op ${player}`, `Opped ${player} 👑`)}
+              onclick={() => sendPlayerCommand(`op ${commandName(player)}`, `Opped ${player} 👑`)}
             >
               👑 Op
             </Button>
             <Button
               variant="ghost"
-              onclick={() => sendPlayerCommand(`deop ${player}`, `De-opped ${player}`)}
+              onclick={() =>
+                sendPlayerCommand(`deop ${commandName(player)}`, `De-opped ${player}`)}
             >
               De-op
             </Button>
             <Button
               variant="danger"
-              onclick={() => sendPlayerCommand(`kick ${player}`, `Kicked ${player} 👢`)}
+              onclick={() =>
+                sendPlayerCommand(`kick ${commandName(player)}`, `Kicked ${player} 👢`)}
             >
               👢 Kick
             </Button>
-            <Button
-              variant="danger"
-              onclick={() => sendPlayerCommand(`ban ${player}`, `Banned ${player} 🔨`)}
-            >
-              🔨 Ban
-            </Button>
+            {#if !isBedrock}
+              <Button
+                variant="danger"
+                onclick={() => sendPlayerCommand(`ban ${player}`, `Banned ${player} 🔨`)}
+              >
+                🔨 Ban
+              </Button>
+            {/if}
           </span>
         </li>
       {/each}

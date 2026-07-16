@@ -34,10 +34,38 @@ cross-platform alternative to tools like MC Server Soft.
 - [x] Port selection, per-server Java/JVM args/start command, server icons,
   and an MOTD editor with live preview
 
-## 🚀 Getting started
+## 📦 Installing
+
+Grab the installer for your platform from the
+[releases page](https://github.com/Squ1ggly/mc-server-manager/releases)
+(built automatically by CI when a version tag is pushed):
+
+- **Windows**: run the `.exe` (NSIS) or `.msi` installer.
+- **macOS**: open the `.dmg` and drag Blockparty to Applications. Builds are
+  unsigned, so the first launch needs right-click → Open (or
+  `xattr -dr com.apple.quarantine /Applications/blockparty.app`).
+- **Linux**: either install the `.deb` (`sudo apt install ./blockparty_*.deb`)
+  or `.rpm`, or use the portable `.AppImage`
+  (`chmod +x Blockparty_*.AppImage && ./Blockparty_*.AppImage`).
+  The deb/rpm pull in the WebKitGTK runtime automatically; the AppImage
+  bundles everything.
+
+Servers themselves run wherever the app runs — the same Java auto-download
+works on all three platforms.
+
+## 🚀 Developing
 
 Prerequisites: [Rust](https://rustup.rs), [Node.js](https://nodejs.org), and the
-[Tauri CLI](https://tauri.app) (`cargo install tauri-cli`).
+[Tauri CLI](https://tauri.app) (`cargo install tauri-cli`). On Linux you also
+need the WebKitGTK dev packages
+([full list](https://tauri.app/start/prerequisites/#linux)):
+
+```sh
+sudo apt install libwebkit2gtk-4.1-dev build-essential libssl-dev \
+  librsvg2-dev libappindicator3-dev patchelf
+```
+
+Then:
 
 ```sh
 cargo tauri dev    # installs deps, builds the UI, and launches the app
@@ -47,8 +75,12 @@ That's it — one command, no dev server, no open ports. The UI is loaded as
 built static files exactly like in production. For a distributable build:
 
 ```sh
-cargo tauri build  # builds the UI and bundles the installer automatically
+cargo tauri build  # bundles the platform installer (NSIS/MSI, dmg, deb/rpm/AppImage)
 ```
+
+Installers land in `src-tauri/target/release/bundle/`. Each OS builds its own
+format — Windows builds Windows installers, macOS builds dmg, Linux builds
+deb/rpm/AppImage — which is why the release workflow runs on all three.
 
 ## 🗂 Project structure
 

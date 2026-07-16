@@ -35,6 +35,15 @@ impl Loader {
     pub fn is_proxy(self) -> bool {
         matches!(self, Loader::Velocity | Loader::BungeeCord)
     }
+
+    /// The console command that shuts this software down gracefully.
+    pub fn stop_command(self) -> &'static str {
+        match self {
+            Loader::BungeeCord => "end",
+            Loader::Velocity => "shutdown",
+            _ => "stop",
+        }
+    }
 }
 
 /// Lifecycle state of a server process.

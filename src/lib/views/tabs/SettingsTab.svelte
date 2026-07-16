@@ -282,10 +282,11 @@
     </div>
   </section>
 
-  <section class="card">
-    <div class="icon-motd-grid">
-      <div class="icon-block">
-        <h3>🖼️ Server icon</h3>
+  {#if !isBedrock}
+    <section class="card">
+      <div class="icon-motd-grid">
+        <div class="icon-block">
+          <h3>🖼️ Server icon</h3>
         <div class="icon-row">
           {#if iconDataUrl}
             <img class="icon-preview" src={iconDataUrl} alt="Server icon" width="64" height="64" />
@@ -305,16 +306,17 @@
         </p>
       </div>
 
-      <div class="motd-block">
-        <h3>💬 MOTD</h3>
-        <MotdEditor
-          value={motdValue}
-          onchange={(text) => setValue("motd", encodeMotdProperty(text))}
-        />
-        <p class="hint">Saves together with the server.properties changes below.</p>
+        <div class="motd-block">
+          <h3>💬 MOTD</h3>
+          <MotdEditor
+            value={motdValue}
+            onchange={(text) => setValue("motd", encodeMotdProperty(text))}
+          />
+          <p class="hint">Saves together with the server.properties changes below.</p>
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
+  {/if}
 
   <section class="card props-card">
     <div class="props-head">

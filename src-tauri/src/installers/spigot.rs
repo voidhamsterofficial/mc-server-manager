@@ -15,14 +15,28 @@ const BUILDTOOLS_URL: &str =
 const BUILD_DIR_NAME: &str = "buildtools-work";
 
 /// Spigot builds against official releases, so the Mojang release list is
-/// the version list (snapshots are not supported).
+/// the version list. BuildTools can't compile anything older than 1.8.
 pub async fn list_versions(client: &reqwest::Client) -> AppResult<Vec<McVersion>> {
     let all = vanilla::list_versions(client).await?;
     let releases = all
         .into_iter()
-        .filter(|version| version.kind == "release")
+        .filter(|version| version.kind == "release" && buildtools_supports(&version.id))
         .collect();
     Ok(releases)
+}
+
+fn buildtools_supports(mc_version: &str) -> bool {
+    let mut parts = mc_version.split('.');
+    let Some(era) = parts.next() else {
+        return false;
+    };
+    if era != "1" {
+        // Year-based versions (25.x+) are newer than 1.8 by definition.
+        return true;
+    }
+
+    let minor: u32 = parts.next().and_then(|part| part.parse().ok()).unwrap_or(0);
+    minor >= 8
 }
 
 pub async fn install(
