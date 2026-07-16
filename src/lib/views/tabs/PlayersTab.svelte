@@ -1,8 +1,9 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
-  import { api, type ServerConfig } from "../../api";
+  import { api, type RosterEntry, type ServerConfig } from "../../api";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
+  import { formatDateTime, formatUptime } from "../../format";
   import Button from "../../components/Button.svelte";
 
   interface Props {
@@ -12,10 +13,29 @@
   let { server }: Props = $props();
 
   let manualName = $state("");
+  let historyOpen = $state(false);
+  let roster = $state<RosterEntry[]>([]);
 
   const status = $derived(serversStore.statusOf(server.id));
   const players = $derived(serversStore.playersOf(server.id));
   const canCommand = $derived(status === "running");
+
+  $effect(() => {
+    // Reload the history when opened, and keep it fresh as players come
+    // and go while it is open.
+    void players;
+    if (historyOpen) {
+      loadRoster();
+    }
+  });
+
+  async function loadRoster() {
+    try {
+      roster = await api.getPlayerRoster(server.id);
+    } catch (error) {
+      toastsStore.error(String(error));
+    }
+  }
 
   async function sendPlayerCommand(command: string, successMessage: string) {
     try {
@@ -95,6 +115,57 @@
       {/each}
     </ul>
   {/if}
+
+  <div class="history">
+    <button class="history-toggle" onclick={() => (historyOpen = !historyOpen)}>
+      <span class="chevron" class:open={historyOpen}>▸</span>
+      📖 Player history
+      {#if historyOpen && roster.length > 0}
+        <span class="count">{roster.length}</span>
+      {/if}
+    </button>
+
+    {#if historyOpen}
+      <div class="history-body" in:fade={{ duration: 120 }}>
+        {#if roster.length === 0}
+          <p class="history-empty">No one has visited this server yet 🌱</p>
+        {:else}
+          <ul class="history-list">
+            {#each roster as entry (entry.name)}
+              <li>
+                <img
+                  src="https://mc-heads.net/avatar/{entry.name}/28"
+                  alt=""
+                  width="28"
+                  height="28"
+                  loading="lazy"
+                  onerror={(event) =>
+                    ((event.currentTarget as HTMLImageElement).style.display = "none")}
+                />
+                <span class="entry-name">{entry.name}</span>
+                {#if entry.online}
+                  <span class="badge online">🟢 Online</span>
+                {/if}
+                {#if entry.banned}
+                  <span class="badge banned">🔨 Banned</span>
+                {/if}
+                <span class="entry-stats">
+                  ⏱ {formatUptime(entry.totalPlaySeconds)}
+                  · 🚪 {entry.joinCount} join{entry.joinCount === 1 ? "" : "s"}
+                  {#if entry.kickCount > 0}
+                    · 👢 {entry.kickCount} kick{entry.kickCount === 1 ? "" : "s"}
+                  {/if}
+                </span>
+                <span class="entry-seen" title="Last seen">
+                  {entry.online ? "playing now" : formatDateTime(entry.lastSeenUnix)}
+                </span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/if}
+  </div>
 
   {#if canCommand}
     <div class="manual">
@@ -184,6 +255,130 @@
     display: flex;
     gap: 0.35rem;
     flex-wrap: wrap;
+  }
+
+  .history {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
+    overflow: hidden;
+  }
+
+  .history-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-align: left;
+    padding: 0.9rem 1.25rem;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease-out);
+  }
+
+  .history-toggle:hover {
+    background: var(--surface-2);
+  }
+
+  .chevron {
+    display: inline-block;
+    color: var(--muted);
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+
+  .chevron.open {
+    transform: rotate(90deg);
+  }
+
+  .count {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent-strong);
+    background: var(--accent-soft);
+    border-radius: 999px;
+    padding: 0.15em 0.65em;
+  }
+
+  .history-body {
+    padding: 0 1.25rem 1rem;
+  }
+
+  .history-empty {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+
+  .history-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .history-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .history-list li:last-child {
+    border-bottom: none;
+  }
+
+  .history-list img {
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .entry-name {
+    font-weight: 700;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 0.2em 0.65em;
+    white-space: nowrap;
+  }
+
+  .badge.online {
+    color: var(--mint);
+    background: var(--mint-soft);
+  }
+
+  .badge.banned {
+    color: var(--strawberry);
+    background: var(--strawberry-soft);
+  }
+
+  .entry-stats {
+    flex: 1;
+    font-size: 0.8rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .entry-seen {
+    font-size: 0.78rem;
+    color: var(--muted);
+    white-space: nowrap;
   }
 
   .manual {

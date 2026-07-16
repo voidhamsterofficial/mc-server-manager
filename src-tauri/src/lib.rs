@@ -8,6 +8,7 @@ mod java;
 mod platform;
 mod process;
 mod properties;
+mod roster;
 mod scheduler;
 mod servers;
 mod service;
@@ -43,6 +44,7 @@ pub fn run() {
             commands::restart_server,
             commands::server_statuses,
             commands::server_players,
+            commands::get_player_roster,
             commands::detect_java,
             commands::get_settings,
             commands::set_servers_base_dir,

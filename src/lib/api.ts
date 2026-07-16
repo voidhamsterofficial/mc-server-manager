@@ -80,6 +80,17 @@ export interface ScheduledTask {
   enabled: boolean;
 }
 
+export interface RosterEntry {
+  name: string;
+  online: boolean;
+  banned: boolean;
+  firstJoinedUnix: number;
+  lastSeenUnix: number;
+  joinCount: number;
+  kickCount: number;
+  totalPlaySeconds: number;
+}
+
 export interface UpdateServerRequest {
   name: string;
   memoryMb: number;
@@ -108,6 +119,8 @@ export const api = {
     invoke<string>("preview_server_dir", { name, locationParent }),
   restartServer: (serverId: string) => invoke<void>("restart_server", { serverId }),
   serverPlayers: () => invoke<Record<string, string[]>>("server_players"),
+  getPlayerRoster: (serverId: string) =>
+    invoke<RosterEntry[]>("get_player_roster", { serverId }),
   updateServer: (serverId: string, request: UpdateServerRequest) =>
     invoke<ServerConfig>("update_server", { serverId, request }),
   getServerProperties: (serverId: string) =>

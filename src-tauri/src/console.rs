@@ -39,6 +39,8 @@ pub enum ConsoleSignal {
     ServerReady,
     PlayerJoined(String),
     PlayerLeft(String),
+    /// "Kicked <name>: <reason>" — logged when a player is kicked.
+    PlayerKicked(String),
 }
 
 /// Parses one raw output line into its display form and any state-change
@@ -87,8 +89,22 @@ pub fn parse_signal(line: &str) -> Option<ConsoleSignal> {
     if let Some(player_name) = player_event_name(message, " left the game") {
         return Some(ConsoleSignal::PlayerLeft(player_name));
     }
+    if let Some(player_name) = kicked_player_name(message) {
+        return Some(ConsoleSignal::PlayerKicked(player_name));
+    }
 
     None
+}
+
+/// Matches `Kicked <name>: <reason>` where the name is a single token.
+fn kicked_player_name(message: &str) -> Option<String> {
+    let after_prefix = message.strip_prefix("Kicked ")?;
+    let (name, _reason) = after_prefix.split_once(':')?;
+    let is_single_token = !name.is_empty() && !name.contains(' ') && !name.contains('<');
+    if !is_single_token {
+        return None;
+    }
+    Some(name.to_string())
 }
 
 /// Returns the message portion after the last `]: ` marker, e.g.
@@ -426,6 +442,19 @@ mod tests {
     fn ignores_chat_messages_that_mimic_events() {
         let chat_line = "[12:00:00] [Server thread/INFO]: <Alex> somebody joined the game";
         assert_eq!(parse_signal(chat_line), None);
+    }
+
+    #[test]
+    fn detects_player_kicks() {
+        let kicked =
+            parse_signal("[12:00:00] [Server thread/INFO]: Kicked Alex: Kicked by an operator");
+        assert_eq!(
+            kicked,
+            Some(ConsoleSignal::PlayerKicked("Alex".to_string()))
+        );
+
+        let chat = "[12:00:00] [Server thread/INFO]: <Bob> Kicked Alex: just kidding";
+        assert_eq!(parse_signal(chat), None);
     }
 
     #[test]

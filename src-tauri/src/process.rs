@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{mpsc, oneshot, Mutex};
@@ -329,6 +329,10 @@ async fn ingest_line(
         Some(ConsoleSignal::PlayerLeft(player_name)) => {
             record_player_change(app, running, server_id, PlayerChange::Left(player_name)).await;
         }
+        Some(ConsoleSignal::PlayerKicked(player_name)) => {
+            let state = app.state::<crate::state::AppState>();
+            state.rosters.record_kick(server_id, &player_name).await;
+        }
         None => {}
     }
 
@@ -376,6 +380,9 @@ async fn supervise(
     };
     emit_status(&app, &server_id, final_status);
 
+    let state = app.state::<crate::state::AppState>();
+    state.rosters.close_all_sessions(&server_id).await;
+
     let empty_player_list = PlayersEvent {
         server_id: server_id.clone(),
         players: Vec::new(),
@@ -394,6 +401,12 @@ async fn record_player_change(
     server_id: &str,
     change: PlayerChange,
 ) {
+    let state = app.state::<crate::state::AppState>();
+    match &change {
+        PlayerChange::Joined(name) => state.rosters.record_join(server_id, name).await,
+        PlayerChange::Left(name) => state.rosters.record_leave(server_id, name).await,
+    }
+
     let players = {
         let mut running_guard = running.lock().await;
         let Some(handle) = running_guard.get_mut(server_id) else {

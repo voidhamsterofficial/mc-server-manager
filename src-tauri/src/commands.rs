@@ -14,6 +14,7 @@ use crate::installers::{self, vanilla};
 use crate::java::{self, JavaInstall};
 use crate::process;
 use crate::properties::{self, Property};
+use crate::roster::{self, RosterEntry};
 use crate::scheduler::{self, ScheduledTask};
 use crate::servers::{self, CreateServerRequest, Loader, ServerConfig, ServerStatus};
 use crate::service;
@@ -250,6 +251,29 @@ pub async fn update_server(
 pub async fn server_players(state: State<'_, AppState>) -> AppResult<HashMap<String, Vec<String>>> {
     let snapshot = process::players(&state.running).await;
     Ok(snapshot)
+}
+
+/// Everyone who has ever joined this server, with live online/banned state.
+#[tauri::command]
+pub async fn get_player_roster(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+) -> AppResult<Vec<RosterEntry>> {
+    let config = service::find_config(&app, &server_id).await?;
+
+    let online_by_server = process::players(&state.running).await;
+    let online_players = online_by_server
+        .get(&server_id)
+        .cloned()
+        .unwrap_or_default();
+    let banned_names = roster::read_banned_names(&state.server_dir(&config));
+
+    let entries = state
+        .rosters
+        .entries(&server_id, &online_players, &banned_names)
+        .await;
+    Ok(entries)
 }
 
 #[tauri::command]

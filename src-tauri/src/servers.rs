@@ -217,7 +217,7 @@ pub fn write_eula_acceptance(server_dir: &Path) -> AppResult<()> {
     Ok(())
 }
 
-fn current_unix_time() -> u64 {
+pub(crate) fn current_unix_time() -> u64 {
     let since_epoch = SystemTime::now().duration_since(UNIX_EPOCH);
     let seconds = since_epoch.map(|duration| duration.as_secs());
     seconds.unwrap_or(0)

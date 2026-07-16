@@ -10,6 +10,7 @@ use tokio::sync::Mutex;
 
 use crate::error::AppResult;
 use crate::process::RunningMap;
+use crate::roster::RosterStore;
 use crate::scheduler::{self, ScheduledTask};
 use crate::servers::{ServerConfig, ServerRegistry};
 use crate::settings::AppSettings;
@@ -20,6 +21,7 @@ const TASKS_FILE_NAME: &str = "schedules.json";
 const SERVERS_DIR_NAME: &str = "servers";
 const BACKUPS_DIR_NAME: &str = "backups";
 const MANAGED_JAVA_DIR_NAME: &str = "java";
+const ROSTERS_DIR_NAME: &str = "rosters";
 
 pub struct AppState {
     data_dir: PathBuf,
@@ -31,6 +33,7 @@ pub struct AppState {
     /// Serializes automatic Java downloads so two servers starting at once
     /// don't fetch the same runtime twice.
     pub java_download_lock: Mutex<()>,
+    pub rosters: RosterStore,
 }
 
 impl AppState {
@@ -56,6 +59,7 @@ impl AppState {
             tasks: Mutex::new(tasks),
             running: Arc::new(Mutex::new(HashMap::new())),
             java_download_lock: Mutex::new(()),
+            rosters: RosterStore::new(data_dir.join(ROSTERS_DIR_NAME)),
             data_dir,
         };
         Ok(state)
