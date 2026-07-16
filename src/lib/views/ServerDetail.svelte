@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { fly } from "svelte/transition";
-  import { backOut } from "svelte/easing";
+  import { fade } from "svelte/transition";
   import { api, type ServerConfig } from "../api";
   import { serversStore } from "../stores/servers.svelte";
   import { toastsStore } from "../stores/toasts.svelte";
@@ -61,7 +60,7 @@
   }
 </script>
 
-<section class="detail" in:fly={{ x: 24, duration: 320, easing: backOut }}>
+<section class="detail" in:fade={{ duration: 120 }}>
   <header>
     <div class="title">
       <h1>{server.name}</h1>
@@ -205,15 +204,13 @@
     border-radius: 999px;
     cursor: pointer;
     transition:
-      background-color 0.15s ease,
-      color 0.15s ease,
-      transform 0.18s var(--ease-bounce);
+      background-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
   }
 
   .tab:hover {
     background: var(--surface-2);
     color: var(--text);
-    transform: translateY(-1px);
   }
 
   .tab.active {

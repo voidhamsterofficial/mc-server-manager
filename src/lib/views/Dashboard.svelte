@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { fly } from "svelte/transition";
-  import { backOut } from "svelte/easing";
+  import { fade } from "svelte/transition";
   import { serversStore } from "../stores/servers.svelte";
   import ServerCard from "../components/ServerCard.svelte";
   import Button from "../components/Button.svelte";
@@ -22,15 +21,15 @@
   </div>
 
   {#if serversStore.servers.length === 0}
-    <div class="empty" in:fly={{ y: 20, duration: 450, easing: backOut }}>
+    <div class="empty" in:fade={{ duration: 120 }}>
       <span class="egg">🥚</span>
       <p>No servers yet — let's hatch your first one!</p>
       <Button onclick={() => (wizardOpen = true)}>Create a server</Button>
     </div>
   {:else}
     <div class="grid">
-      {#each serversStore.servers as server, index (server.id)}
-        <ServerCard {server} {index} onopen={() => onopen(server.id)} />
+      {#each serversStore.servers as server (server.id)}
+        <ServerCard {server} onopen={() => onopen(server.id)} />
       {/each}
     </div>
   {/if}

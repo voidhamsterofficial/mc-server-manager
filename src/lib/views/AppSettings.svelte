@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { fly } from "svelte/transition";
-  import { backOut } from "svelte/easing";
+  import { fade } from "svelte/transition";
   import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
   import { api, type AppSettings, type JavaInstall } from "../api";
   import { toastsStore } from "../stores/toasts.svelte";
@@ -51,7 +50,7 @@
   }
 </script>
 
-<section class="settings" in:fly={{ y: 18, duration: 350, easing: backOut }}>
+<section class="settings" in:fade={{ duration: 120 }}>
   <h1>Settings ⚙️</h1>
 
   <div class="card">

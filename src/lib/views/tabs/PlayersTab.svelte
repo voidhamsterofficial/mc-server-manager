@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { fly } from "svelte/transition";
-  import { backOut } from "svelte/easing";
+  import { fade } from "svelte/transition";
   import { api, type ServerConfig } from "../../api";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
@@ -49,14 +48,14 @@
   {#if !canCommand}
     <p class="offline-note">Player management needs the server running 🌙</p>
   {:else if players.length === 0}
-    <div class="empty" in:fly={{ y: 16, duration: 400, easing: backOut }}>
+    <div class="empty" in:fade={{ duration: 120 }}>
       <span class="face">🐑</span>
       <p>No players online right now — the sheep have the place to themselves.</p>
     </div>
   {:else}
     <ul class="player-list">
-      {#each players as player, index (player)}
-        <li in:fly={{ y: 14, duration: 320, delay: index * 45, easing: backOut }}>
+      {#each players as player (player)}
+        <li in:fade={{ duration: 120 }}>
           <img
             src="https://mc-heads.net/avatar/{player}/40"
             alt=""

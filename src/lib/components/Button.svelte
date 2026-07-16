@@ -40,19 +40,13 @@
     cursor: pointer;
     white-space: nowrap;
     transition:
-      transform 0.18s var(--ease-bounce),
-      box-shadow 0.18s ease,
-      background-color 0.18s ease,
-      opacity 0.18s ease;
-  }
-
-  .btn:hover:not(:disabled) {
-    transform: translateY(-1px) scale(1.04);
-    box-shadow: var(--shadow-soft);
+      background-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out),
+      opacity var(--duration-fast) var(--ease-out);
   }
 
   .btn:active:not(:disabled) {
-    transform: scale(0.94);
+    filter: brightness(0.94);
   }
 
   .btn:disabled {
@@ -74,9 +68,17 @@
     color: var(--accent-strong);
   }
 
+  .soft:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent-soft) 82%, var(--accent));
+  }
+
   .danger {
     background: var(--strawberry-soft);
     color: var(--strawberry);
+  }
+
+  .danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--strawberry-soft) 82%, var(--strawberry));
   }
 
   .ghost {
@@ -85,7 +87,7 @@
   }
 
   .ghost:hover:not(:disabled) {
+    background: var(--surface-2);
     color: var(--text);
-    box-shadow: none;
   }
 </style>

@@ -18,8 +18,7 @@
     onStatusChange,
     type InstallProgressEvent,
   } from "./lib/events";
-  import { fly } from "svelte/transition";
-  import { backOut } from "svelte/easing";
+  import { fade } from "svelte/transition";
 
   type Route = { view: "home" } | { view: "server"; serverId: string } | { view: "settings" };
 
@@ -146,7 +145,7 @@
 </div>
 
 {#if javaDownload}
-  <div class="java-pill" transition:fly={{ y: 20, duration: 300, easing: backOut }}>
+  <div class="java-pill" transition:fade={{ duration: 120 }}>
     <span class="java-cup">☕</span>
     Downloading Java… {javaDownloadText}
   </div>
@@ -193,11 +192,6 @@
 
   .mark {
     font-size: 1.4rem;
-    transition: transform 0.25s var(--ease-bounce);
-  }
-
-  .brand:hover .mark {
-    transform: translateY(-3px) rotate(-8deg) scale(1.15);
   }
 
   .name {
@@ -235,15 +229,12 @@
     padding: 0.55rem 0.7rem;
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition:
-      background-color 0.15s ease,
-      transform 0.18s var(--ease-bounce);
+    transition: background-color var(--duration-fast) var(--ease-out);
   }
 
   .server-item:hover,
   .settings-item:hover {
     background: var(--surface-2);
-    transform: translateX(2px);
   }
 
   .server-item.active,

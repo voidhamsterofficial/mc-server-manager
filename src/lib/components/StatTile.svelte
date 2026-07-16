@@ -36,14 +36,6 @@
     flex-direction: column;
     gap: 0.35rem;
     min-width: 0;
-    transition:
-      transform 0.22s var(--ease-bounce),
-      box-shadow 0.22s ease;
-  }
-
-  .tile:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-pop);
   }
 
   .label {

@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { fly } from "svelte/transition";
-  import { backOut } from "svelte/easing";
+  import { fade } from "svelte/transition";
   import { api, type ScheduledTask, type ServerConfig, type TaskAction } from "../../api";
   import { toastsStore } from "../../stores/toasts.svelte";
   import { formatDateTime } from "../../format";
@@ -173,7 +172,7 @@
   </div>
 
   {#if editing}
-    <form class="editor" onsubmit={saveTask} in:fly={{ y: 14, duration: 300, easing: backOut }}>
+    <form class="editor" onsubmit={saveTask} in:fade={{ duration: 120 }}>
       <div class="editor-grid">
         <label>
           <span>Name</span>
@@ -228,17 +227,14 @@
   {/if}
 
   {#if myTasks.length === 0 && !editing}
-    <div class="empty" in:fly={{ y: 16, duration: 400, easing: backOut }}>
+    <div class="empty" in:fade={{ duration: 120 }}>
       <span class="face">🕰️</span>
       <p>Nothing scheduled — add a nightly backup or a friendly hourly broadcast!</p>
     </div>
   {:else}
     <ul class="task-list">
-      {#each myTasks as task, index (task.id)}
-        <li
-          class:disabled={!task.enabled}
-          in:fly={{ y: 14, duration: 300, delay: index * 40, easing: backOut }}
-        >
+      {#each myTasks as task (task.id)}
+        <li class:disabled={!task.enabled} in:fade={{ duration: 120 }}>
           <label class="toggle" title={task.enabled ? "Disable" : "Enable"}>
             <input type="checkbox" checked={task.enabled} onchange={() => toggleTask(task)} />
           </label>

@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { fly } from "svelte/transition";
-  import { backOut } from "svelte/easing";
+  import { fade } from "svelte/transition";
   import { api, type BackupInfo, type ServerConfig } from "../../api";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
@@ -81,14 +80,14 @@
   </div>
 
   {#if backups.length === 0}
-    <div class="empty" in:fly={{ y: 16, duration: 400, easing: backOut }}>
+    <div class="empty" in:fade={{ duration: 120 }}>
       <span class="face">🫙</span>
       <p>No backups yet — make your first one, future-you will be grateful!</p>
     </div>
   {:else}
     <ul class="backup-list">
-      {#each backups as backup, index (backup.fileName)}
-        <li in:fly={{ y: 14, duration: 300, delay: index * 40, easing: backOut }}>
+      {#each backups as backup (backup.fileName)}
+        <li in:fade={{ duration: 120 }}>
           <span class="file">
             <span class="file-name">{backup.fileName}</span>
             <span class="file-meta">

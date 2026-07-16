@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { fly } from "svelte/transition";
-  import { backOut } from "svelte/easing";
+  import { fade } from "svelte/transition";
   import { api, type ServerConfig } from "../api";
   import { serversStore } from "../stores/servers.svelte";
   import { toastsStore } from "../stores/toasts.svelte";
@@ -10,11 +9,10 @@
 
   interface Props {
     server: ServerConfig;
-    index: number;
     onopen: () => void;
   }
 
-  let { server, index, onopen }: Props = $props();
+  let { server, onopen }: Props = $props();
 
   let busy = $state(false);
 
@@ -41,7 +39,7 @@
 
 <div
   class="card"
-  in:fly={{ y: 24, duration: 420, delay: index * 70, easing: backOut }}
+  in:fade={{ duration: 120 }}
   onclick={onopen}
   onkeydown={(event) => event.key === "Enter" && onopen()}
   role="button"
@@ -78,18 +76,11 @@
     flex-direction: column;
     gap: 1.05rem;
     cursor: pointer;
-    position: relative;
-    transition:
-      transform 0.22s var(--ease-bounce),
-      box-shadow 0.22s ease;
+    transition: border-color var(--duration-fast) var(--ease-out);
   }
 
-  /* Lift without scaling, and stack above neighbours, so hovering never
-     overlaps adjacent cards' content. */
   .card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-pop);
-    z-index: 1;
+    border-color: color-mix(in srgb, var(--border) 40%, var(--accent));
   }
 
   .top {

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { fly } from "svelte/transition";
-  import { backOut } from "svelte/easing";
   import { toastsStore } from "../stores/toasts.svelte";
 
   const KIND_EMOJI = { success: "🎉", error: "😿", info: "💡" } as const;
@@ -10,7 +9,7 @@
   {#each toastsStore.toasts as toast (toast.id)}
     <button
       class="toast {toast.kind}"
-      transition:fly={{ y: 24, duration: 320, easing: backOut }}
+      transition:fly={{ y: 8, duration: 150 }}
       onclick={() => toastsStore.dismiss(toast.id)}
     >
       <span class="emoji">{KIND_EMOJI[toast.kind]}</span>

@@ -40,7 +40,9 @@
   --shadow-soft: 0 4px 20px rgba(109, 87, 170, 0.1);
   --shadow-pop: 0 10px 30px rgba(109, 87, 170, 0.2);
 
-  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Feedback is color-based and fast; nothing moves on hover. */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 120ms;
 }
 
 @media (prefers-color-scheme: dark) {

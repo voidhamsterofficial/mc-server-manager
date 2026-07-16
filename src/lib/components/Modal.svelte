@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { fade, scale } from "svelte/transition";
-  import { backOut } from "svelte/easing";
+  import { cubicOut } from "svelte/easing";
 
   interface Props {
     open: boolean;
@@ -27,7 +27,7 @@
   >
     <div
       class="dialog"
-      transition:scale={{ start: 0.88, duration: 260, easing: backOut }}
+      transition:scale={{ start: 0.97, duration: 140, easing: cubicOut }}
       onclick={(event) => event.stopPropagation()}
       onkeydown={(event) => event.key === "Escape" && onclose?.()}
       role="dialog"
@@ -87,11 +87,13 @@
     height: 32px;
     border-radius: 50%;
     cursor: pointer;
-    transition: transform 0.18s var(--ease-bounce);
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
   }
 
   .close:hover {
-    transform: scale(1.1) rotate(90deg);
+    background: var(--border);
     color: var(--text);
   }
 </style>
