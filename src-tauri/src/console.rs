@@ -133,10 +133,10 @@ fn player_event_name(message: &str, suffix: &str) -> Option<String> {
 
 // --- Semantic highlighting for plain lines -------------------------------
 
-const TIMESTAMP_COLOR: &str = "#8f86ad";
-const INFO_TAG_COLOR: &str = "#6ee7b7";
-const WARN_TAG_COLOR: &str = "#ffb454";
-const ERROR_TAG_COLOR: &str = "#ff6b81";
+const TIMESTAMP_COLOR: &str = "#8a8a92";
+const INFO_TAG_COLOR: &str = "#71d95c";
+const WARN_TAG_COLOR: &str = "#ffaa00";
+const ERROR_TAG_COLOR: &str = "#ff5555";
 
 fn is_unstyled(spans: &[ConsoleSpan]) -> bool {
     let has_style = spans.iter().any(|span| span.color.is_some() || span.bold);

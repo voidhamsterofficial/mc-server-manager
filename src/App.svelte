@@ -199,7 +199,7 @@
     font-family: var(--font-pixel);
     font-size: 1.05rem;
     font-weight: 700;
-    background: linear-gradient(90deg, var(--accent), var(--strawberry));
+    background: linear-gradient(90deg, var(--accent), var(--peach));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;

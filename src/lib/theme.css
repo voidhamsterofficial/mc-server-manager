@@ -17,45 +17,51 @@
 }
 
 :root {
-  --font-body:
-    "Segoe UI Variable Display", ui-rounded, "SF Pro Rounded", "Segoe UI",
-    system-ui, -apple-system, sans-serif;
+  --font-body: "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, "Cascadia Mono", "Consolas", monospace;
   --font-pixel: "Monocraft", ui-monospace, monospace;
 
-  --bg: #faf7ff;
-  --bg-gradient: radial-gradient(1200px 600px at 80% -10%, #f3e8ff 0%, transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, #e0f2fe 0%, transparent 55%);
-  --surface: #ffffff;
-  --surface-2: #f4eefe;
-  --text: #3d3654;
-  --muted: #8b84a3;
-  --border: #eae3f8;
+  /* Light mode: classic inventory gray. */
+  --bg: #b7b7bb;
+  --bg-gradient: radial-gradient(1000px 700px at 50% -20%, rgba(255, 255, 255, 0.35), transparent 70%);
+  --surface: #c6c6c6;
+  --surface-2: #b0b0b3;
+  --text: #26262a;
+  --muted: #55555c;
+  --border: #8b8b8b;
 
-  --accent: #8b5cf6;
-  --accent-strong: #7c3aed;
-  --accent-soft: #ede9fe;
+  /* Grass green, the signature Minecraft accent. */
+  --accent: #3c8527;
+  --accent-strong: #2f6b1e;
+  --accent-soft: #a5c79a;
   --on-accent: #ffffff;
 
-  /* Status candy */
-  --mint: #10b981;
-  --mint-soft: #d7f5ea;
-  --peach: #f97316;
-  --peach-soft: #ffedd5;
-  --lavender: #a78bfa;
-  --lavender-soft: #efeafd;
-  --strawberry: #f43f5e;
-  --strawberry-soft: #ffe4e9;
+  /* Status colors from the game's palette */
+  --mint: #2f6b1e;
+  --mint-soft: #b4d2a8;
+  --peach: #9c6b00;
+  --peach-soft: #e2cd9d;
+  --lavender: #55555c;
+  --lavender-soft: #b0b0b3;
+  --strawberry: #a22525;
+  --strawberry-soft: #dcb0b0;
 
   /* Chart marks (single-series sparklines) — validated per surface */
-  --chart-cpu: #059669;
-  --chart-mem: #7c3aed;
+  --chart-cpu: #2e7d1f;
+  --chart-mem: #0277bd;
 
-  --radius-lg: 22px;
-  --radius-md: 14px;
-  --radius-sm: 10px;
-  --shadow-soft: 0 4px 20px rgba(109, 87, 170, 0.1);
-  --shadow-pop: 0 10px 30px rgba(109, 87, 170, 0.2);
+  /* Blocky: small radii, hard offset shadows, inset bevels on panels. */
+  --radius-lg: 8px;
+  --radius-md: 6px;
+  --radius-sm: 4px;
+  --shadow-soft:
+    inset 0 2px 0 rgba(255, 255, 255, 0.45),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.12),
+    0 2px 0 rgba(0, 0, 0, 0.22);
+  --shadow-pop:
+    inset 0 2px 0 rgba(255, 255, 255, 0.45),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.12),
+    0 3px 0 rgba(0, 0, 0, 0.3);
 
   /* Feedback is color-based and fast; nothing moves on hover. */
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
@@ -64,30 +70,40 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #16121f;
-    --bg-gradient: radial-gradient(1200px 600px at 80% -10%, #2a1e45 0%, transparent 60%),
-      radial-gradient(900px 500px at -10% 110%, #16283b 0%, transparent 55%);
-    --surface: #211b30;
-    --surface-2: #2a2340;
-    --text: #ece7f7;
-    --muted: #9d95b8;
-    --border: #352c4e;
+    /* Dark mode: charcoal panels in the style of the game's modern UI. */
+    --bg: #141518;
+    --bg-gradient: radial-gradient(1000px 700px at 50% -20%, rgba(255, 255, 255, 0.05), transparent 70%);
+    --surface: #26272b;
+    --surface-2: #313237;
+    --text: #ececec;
+    --muted: #a5a5ad;
+    --border: #3b3c42;
 
-    --accent: #a78bfa;
-    --accent-strong: #8b5cf6;
-    --accent-soft: #322a52;
-    --on-accent: #171225;
+    --accent: #5ebd3e;
+    --accent-strong: #6fd14b;
+    --accent-soft: #23391b;
+    --on-accent: #0c1607;
 
-    --mint-soft: #123d31;
-    --peach-soft: #45290f;
-    --lavender-soft: #2e2749;
-    --strawberry-soft: #451822;
+    --mint: #62c94a;
+    --mint-soft: #1d3315;
+    --peach: #ffaa00;
+    --peach-soft: #3c2f10;
+    --lavender: #a9a9b3;
+    --lavender-soft: #33343a;
+    --strawberry: #ff5555;
+    --strawberry-soft: #401c1c;
 
-    --chart-cpu: #34d399;
-    --chart-mem: #a78bfa;
+    --chart-cpu: #6fd14b;
+    --chart-mem: #4fc3f7;
 
-    --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.35);
-    --shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.5);
+    --shadow-soft:
+      inset 0 2px 0 rgba(255, 255, 255, 0.05),
+      inset -2px -2px 0 rgba(0, 0, 0, 0.25),
+      0 2px 0 rgba(0, 0, 0, 0.4);
+    --shadow-pop:
+      inset 0 2px 0 rgba(255, 255, 255, 0.05),
+      inset -2px -2px 0 rgba(0, 0, 0, 0.25),
+      0 3px 0 rgba(0, 0, 0, 0.55);
   }
 }
 

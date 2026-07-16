@@ -8,7 +8,7 @@
   let { trigger }: Props = $props();
 
   const PIECE_COUNT = 28;
-  const COLORS = ["#8b5cf6", "#10b981", "#f97316", "#f43f5e", "#38bdf8", "#facc15"];
+  const COLORS = ["#5ebd3e", "#ffaa00", "#55ffff", "#ff5555", "#ffff55", "#a06a42"];
 
   interface Piece {
     left: number;

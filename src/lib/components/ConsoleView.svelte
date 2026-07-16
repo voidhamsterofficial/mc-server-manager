@@ -51,8 +51,9 @@
   .viewport {
     height: 100%;
     overflow-y: auto;
-    background: #1d1926;
+    background: #1a1b1e;
     border-radius: var(--radius-md);
+    box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.5);
     padding: 0.6rem 0;
   }
 
@@ -65,7 +66,7 @@
     white-space: pre-wrap;
     overflow-wrap: break-word;
     word-break: break-word;
-    color: #d6cfe8;
+    color: #d8d8dc;
     user-select: text;
     content-visibility: auto;
     contain-intrinsic-size: auto 19px;
@@ -84,7 +85,7 @@
   }
 
   .empty {
-    color: #8b84a3;
+    color: #9a9aa2;
     text-align: center;
     margin-top: 2.5rem;
     font-size: 0.95rem;

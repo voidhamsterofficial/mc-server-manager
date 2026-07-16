@@ -25,7 +25,7 @@
     }
     commandText = "";
     const echoLine = {
-      spans: [{ text: `> ${command}`, color: "#a78bfa", bold: true }],
+      spans: [{ text: `> ${command}`, color: "#ffaa00", bold: true }],
       level: "info" as const,
     };
     serversStore.appendConsole(server.id, [echoLine]);
