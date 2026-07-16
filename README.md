@@ -36,11 +36,11 @@ Prerequisites: [Rust](https://rustup.rs), [Node.js](https://nodejs.org), and the
 [Tauri CLI](https://tauri.app) (`cargo install tauri-cli`).
 
 ```sh
-cargo tauri dev    # runs everything — deps install, UI dev server, and the app
+cargo tauri dev    # installs deps, builds the UI, and launches the app
 ```
 
-That's it — one command, hot reload included, no npm to think about (Tauri runs
-it under the hood for the Svelte UI). For a distributable build:
+That's it — one command, no dev server, no open ports. The UI is loaded as
+built static files exactly like in production. For a distributable build:
 
 ```sh
 cargo tauri build  # builds the UI and bundles the installer automatically
@@ -66,8 +66,8 @@ per-user app-data directory, not in the repo.
 
 ## 🧑‍💻 Development
 
-- UI hot-reloads via Vite; Rust changes recompile automatically under
-  `cargo tauri dev`.
+- Rust changes recompile automatically under `cargo tauri dev`. After UI
+  changes, re-run `cargo tauri dev` (the UI build takes well under a second).
 - Checks that must pass: `cargo clippy`, `cargo fmt --check`, `cargo test`
   (in `src-tauri/`) and `npm run check` + `npm run build`.
 - Coding standards live in [AGENTS.md](AGENTS.md).

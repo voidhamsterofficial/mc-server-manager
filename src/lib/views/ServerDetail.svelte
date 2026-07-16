@@ -142,11 +142,11 @@
   .detail {
     max-width: 1100px;
     margin: 0 auto;
-    padding: 1.25rem 1.75rem 1.5rem;
+    padding: 1.25rem 1.75rem 1.25rem;
     display: flex;
     flex-direction: column;
     gap: 0.9rem;
-    height: 100vh;
+    height: 100%;
   }
 
   header {

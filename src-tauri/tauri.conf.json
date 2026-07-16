@@ -4,8 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.samue.mc-server-manager",
   "build": {
-    "beforeDevCommand": "npm install --no-audit --no-fund && npm run dev",
-    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm install --no-audit --no-fund && npm run build",
     "beforeBuildCommand": "npm install --no-audit --no-fund && npm run build",
     "frontendDist": "../dist"
   },

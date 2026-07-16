@@ -138,7 +138,7 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="card props-card">
     <div class="props-head">
       <h3>🗒️ server.properties</h3>
       <input class="filter" type="text" bind:value={filterText} placeholder="Filter keys… 🔍" />
@@ -203,11 +203,15 @@
 </div>
 
 <style>
+  /* Fills the tab exactly: the server card keeps its natural height and the
+     properties card flexes to the remaining space, scrolling its key list
+     internally — no box ever renders taller than the window. */
   .settings-tab {
+    height: 100%;
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    padding-bottom: 1rem;
+    padding-bottom: 0.25rem;
   }
 
   .card {
@@ -216,6 +220,14 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-soft);
     padding: 1rem 1.25rem;
+    flex-shrink: 0;
+  }
+
+  .props-card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   h3 {
@@ -301,7 +313,8 @@
   .props-list {
     display: flex;
     flex-direction: column;
-    max-height: 420px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
