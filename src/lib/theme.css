@@ -1,0 +1,148 @@
+/* Design tokens + base styles for Blockparty's cute, bubbly look. */
+
+:root {
+  --font-body:
+    "Segoe UI Variable Display", ui-rounded, "SF Pro Rounded", "Segoe UI",
+    system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+
+  --bg: #faf7ff;
+  --bg-gradient: radial-gradient(1200px 600px at 80% -10%, #f3e8ff 0%, transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, #e0f2fe 0%, transparent 55%);
+  --surface: #ffffff;
+  --surface-2: #f4eefe;
+  --text: #3d3654;
+  --muted: #8b84a3;
+  --border: #eae3f8;
+
+  --accent: #8b5cf6;
+  --accent-strong: #7c3aed;
+  --accent-soft: #ede9fe;
+  --on-accent: #ffffff;
+
+  /* Status candy */
+  --mint: #10b981;
+  --mint-soft: #d7f5ea;
+  --peach: #f97316;
+  --peach-soft: #ffedd5;
+  --lavender: #a78bfa;
+  --lavender-soft: #efeafd;
+  --strawberry: #f43f5e;
+  --strawberry-soft: #ffe4e9;
+
+  /* Chart marks (single-series sparklines) — validated per surface */
+  --chart-cpu: #059669;
+  --chart-mem: #7c3aed;
+
+  --radius-lg: 22px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --shadow-soft: 0 4px 20px rgba(109, 87, 170, 0.1);
+  --shadow-pop: 0 10px 30px rgba(109, 87, 170, 0.2);
+
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16121f;
+    --bg-gradient: radial-gradient(1200px 600px at 80% -10%, #2a1e45 0%, transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, #16283b 0%, transparent 55%);
+    --surface: #211b30;
+    --surface-2: #2a2340;
+    --text: #ece7f7;
+    --muted: #9d95b8;
+    --border: #352c4e;
+
+    --accent: #a78bfa;
+    --accent-strong: #8b5cf6;
+    --accent-soft: #322a52;
+    --on-accent: #171225;
+
+    --mint-soft: #123d31;
+    --peach-soft: #45290f;
+    --lavender-soft: #2e2749;
+    --strawberry-soft: #451822;
+
+    --chart-cpu: #34d399;
+    --chart-mem: #a78bfa;
+
+    --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.35);
+    --shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--text);
+  background-color: var(--bg);
+  background-image: var(--bg-gradient);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+#app {
+  height: 100%;
+}
+
+input,
+select,
+textarea {
+  user-select: text;
+}
+
+/* Chunky, rounded, pastel scrollbars — the default ones ruin the vibe. */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--lavender-soft);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--lavender);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
