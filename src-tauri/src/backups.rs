@@ -27,12 +27,18 @@ pub async fn create(server_dir: PathBuf, backups_dir: PathBuf) -> AppResult<Back
     result
 }
 
-/// Wipes the server directory and extracts the chosen archive into it.
-/// Callers must ensure the server is stopped first.
-pub async fn restore(server_dir: PathBuf, archive_path: PathBuf) -> AppResult<()> {
-    let result = tokio::task::spawn_blocking(move || restore_sync(&server_dir, &archive_path))
-        .await
-        .map_err(|join_error| AppError::Process(join_error.to_string()))?;
+/// Replaces the server directory's contents with the chosen archive,
+/// preserving the backups folder. Callers must ensure the server is
+/// stopped first.
+pub async fn restore(
+    server_dir: PathBuf,
+    backups_dir: PathBuf,
+    archive_path: PathBuf,
+) -> AppResult<()> {
+    let result =
+        tokio::task::spawn_blocking(move || restore_sync(&server_dir, &backups_dir, &archive_path))
+            .await
+            .map_err(|join_error| AppError::Process(join_error.to_string()))?;
     result
 }
 
@@ -156,16 +162,39 @@ fn copy_into_zip<R: Read, W: Write + Seek>(
     Ok(())
 }
 
-fn restore_sync(server_dir: &Path, archive_path: &Path) -> AppResult<()> {
+fn restore_sync(server_dir: &Path, backups_dir: &Path, archive_path: &Path) -> AppResult<()> {
     let archive_file = std::fs::File::open(archive_path)?;
     let mut archive = zip::ZipArchive::new(archive_file)?;
 
-    if server_dir.exists() {
-        std::fs::remove_dir_all(server_dir)?;
-    }
+    clear_server_dir_except_backups(server_dir, backups_dir)?;
     std::fs::create_dir_all(server_dir)?;
 
+    // Archives never contain a backups folder (excluded at creation), so
+    // extraction cannot overwrite it either.
     archive.extract(server_dir)?;
+    Ok(())
+}
+
+/// Empties the server folder before extraction — except the backups folder.
+/// Restoring one backup must never destroy the others (or the archive
+/// currently being read).
+fn clear_server_dir_except_backups(server_dir: &Path, backups_dir: &Path) -> AppResult<()> {
+    if !server_dir.exists() {
+        return Ok(());
+    }
+
+    for entry in std::fs::read_dir(server_dir)? {
+        let entry = entry?;
+        let entry_path = entry.path();
+        if entry_path == backups_dir {
+            continue;
+        }
+        if entry.file_type()?.is_dir() {
+            std::fs::remove_dir_all(&entry_path)?;
+        } else {
+            std::fs::remove_file(&entry_path)?;
+        }
+    }
     Ok(())
 }
 
@@ -225,6 +254,45 @@ mod tests {
         assert!(
             !contains_old_backups,
             "archive must not contain the backups folder: {entry_names:?}"
+        );
+
+        std::fs::remove_dir_all(&temp_root).expect("cleanup");
+    }
+
+    /// Restoring wipes the server folder to make room for the archive — but
+    /// never the backups folder, or one restore would delete every backup.
+    #[test]
+    fn restoring_preserves_the_backups_folder() {
+        let temp_root =
+            std::env::temp_dir().join(format!("blockparty-test-{}", uuid::Uuid::new_v4()));
+        let server_dir = temp_root.join("server");
+        let backups_dir = server_dir.join("backups");
+        std::fs::create_dir_all(server_dir.join("world")).expect("create world dir");
+        std::fs::create_dir_all(&backups_dir).expect("create backups dir");
+        std::fs::write(server_dir.join("world").join("level.dat"), "good world")
+            .expect("write level");
+
+        // Take a real backup of the good state.
+        let good_backup = create_sync(&server_dir, &backups_dir).expect("create backup");
+        std::fs::write(backups_dir.join("older-backup.zip"), "unrelated archive")
+            .expect("write older backup");
+
+        // The world goes bad; restore the good backup over it.
+        std::fs::write(server_dir.join("world").join("level.dat"), "griefed world")
+            .expect("corrupt level");
+        let archive_path = backups_dir.join(&good_backup.file_name);
+        restore_sync(&server_dir, &backups_dir, &archive_path).expect("restore");
+
+        let restored = std::fs::read_to_string(server_dir.join("world").join("level.dat"))
+            .expect("read restored level");
+        assert_eq!(restored, "good world");
+        assert!(
+            archive_path.exists(),
+            "the restored archive itself must survive"
+        );
+        assert!(
+            backups_dir.join("older-backup.zip").exists(),
+            "other backups must survive a restore"
         );
 
         std::fs::remove_dir_all(&temp_root).expect("cleanup");

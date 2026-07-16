@@ -346,8 +346,9 @@ pub async fn restore_backup(
 
     let config = service::find_config(&app, &server_id).await?;
     let server_dir = state.server_dir(&config);
-    let archive_path = backups::safe_archive_path(&state.backups_dir(&config), &file_name)?;
-    backups::restore(server_dir, archive_path).await
+    let backups_dir = state.backups_dir(&config);
+    let archive_path = backups::safe_archive_path(&backups_dir, &file_name)?;
+    backups::restore(server_dir, backups_dir, archive_path).await
 }
 
 #[tauri::command]
