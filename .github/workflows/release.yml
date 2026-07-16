@@ -48,6 +48,11 @@ jobs:
         with:
           workspaces: src-tauri
 
+      # The tauri CLI itself is a devDependency, so it must exist before
+      # `npm run tauri build` can do anything.
+      - name: Install frontend dependencies
+        run: npm install
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
