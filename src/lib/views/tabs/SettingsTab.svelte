@@ -1,6 +1,12 @@
 <script lang="ts">
   import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
-  import { api, resolveBackupsDir, type Property, type ServerConfig } from "../../api";
+  import {
+    api,
+    resolveBackupsDir,
+    type JavaInstall,
+    type Property,
+    type ServerConfig,
+  } from "../../api";
   import { decodeMotdProperty, encodeMotdProperty } from "../../motd";
   import MotdEditor from "../../components/MotdEditor.svelte";
   import {
@@ -19,11 +25,18 @@
 
   let { server }: Props = $props();
 
-  // --- Server config (name / memory / backups location) ---
+  // --- Server config (name / memory / java / launch / backups) ---
   let editedName = $state("");
   let editedMemoryMb = $state(0);
   let editedBackupsDir = $state<string | null>(null);
+  let editedJavaPath = $state<string>("");
+  let editedJavaArgs = $state("");
+  let editedStartCommand = $state("");
+  let editedRetention = $state("");
+  let javaInstalls = $state<JavaInstall[]>([]);
   let savingConfig = $state(false);
+
+  const isBedrock = $derived(server.loader === "bds");
 
   const backupsDirPreview = $derived(
     editedBackupsDir ?? resolveBackupsDir({ ...server, backupsDir: null }),
@@ -62,8 +75,19 @@
     editedName = server.name;
     editedMemoryMb = server.memoryMb;
     editedBackupsDir = server.backupsDir;
+    editedJavaPath = server.javaPath ?? "";
+    editedJavaArgs = server.javaArgs ?? "";
+    editedStartCommand = server.startCommand ?? "";
+    editedRetention = server.backupRetention === null ? "" : String(server.backupRetention);
     loadProperties(server.id);
     loadIcon(server.id);
+  });
+
+  $effect(() => {
+    api
+      .detectJava()
+      .then((installs) => (javaInstalls = installs))
+      .catch(() => (javaInstalls = []));
   });
 
   async function loadIcon(serverId: string) {
@@ -148,11 +172,16 @@
   async function saveConfig() {
     savingConfig = true;
     try {
+      const retentionNumber = Number.parseInt(editedRetention, 10);
       await api.updateServer(server.id, {
         name: editedName,
         memoryMb: editedMemoryMb,
-        javaPath: server.javaPath,
+        javaPath: editedJavaPath === "" ? null : editedJavaPath,
         backupsDir: editedBackupsDir,
+        javaArgs: editedJavaArgs.trim() === "" ? null : editedJavaArgs.trim(),
+        startCommand: editedStartCommand.trim() === "" ? null : editedStartCommand.trim(),
+        backupRetention:
+          Number.isNaN(retentionNumber) || retentionNumber < 1 ? null : retentionNumber,
       });
       await serversStore.refresh();
       toastsStore.success("Server settings saved 💾");
@@ -186,14 +215,52 @@
         <span>Name</span>
         <input type="text" bind:value={editedName} maxlength={SERVER_NAME_MAX_LENGTH} />
       </label>
-      <label>
-        <span>Memory — {editedMemoryMb} MB</span>
+      {#if !isBedrock}
+        <label>
+          <span>Memory — {editedMemoryMb} MB</span>
+          <input
+            type="range"
+            min={MEMORY_MIN_MB}
+            max={MEMORY_MAX_MB}
+            step={MEMORY_STEP_MB}
+            bind:value={editedMemoryMb}
+          />
+        </label>
+        <label>
+          <span>Java runtime</span>
+          <select bind:value={editedJavaPath}>
+            <option value="">Auto (best match, downloads if needed)</option>
+            {#each javaInstalls as install (install.path)}
+              <option value={install.path}>Java {install.majorVersion} — {install.path}</option>
+            {/each}
+          </select>
+        </label>
+        <label>
+          <span>Backup retention (empty = keep all)</span>
+          <input type="number" min="1" bind:value={editedRetention} placeholder="keep all" />
+        </label>
+        <label class="wide">
+          <span>Extra JVM arguments</span>
+          <input
+            type="text"
+            bind:value={editedJavaArgs}
+            placeholder="-XX:+UseG1GC"
+            spellcheck="false"
+          />
+        </label>
+      {:else}
+        <label>
+          <span>Backup retention (empty = keep all)</span>
+          <input type="number" min="1" bind:value={editedRetention} placeholder="keep all" />
+        </label>
+      {/if}
+      <label class="wide">
+        <span>Custom start command (overrides everything)</span>
         <input
-          type="range"
-          min={MEMORY_MIN_MB}
-          max={MEMORY_MAX_MB}
-          step={MEMORY_STEP_MB}
-          bind:value={editedMemoryMb}
+          type="text"
+          bind:value={editedStartCommand}
+          placeholder="java -Xmx4G -jar server.jar nogui"
+          spellcheck="false"
         />
       </label>
     </div>
@@ -400,6 +467,10 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 0.9rem;
+  }
+
+  .config-grid .wide {
+    grid-column: 1 / -1;
   }
 
   label {

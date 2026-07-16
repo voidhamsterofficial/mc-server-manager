@@ -34,6 +34,7 @@ export interface ServerConfig {
   backupsDir: string | null;
   javaArgs: string | null;
   startCommand: string | null;
+  backupRetention: number | null;
   createdAtUnix: number;
 }
 
@@ -115,9 +116,14 @@ export interface RosterEntry {
 export interface UpdateServerRequest {
   name: string;
   memoryMb: number;
+  /** null means auto-resolve (or download) a suitable Java. */
   javaPath: string | null;
   /** null resets to the default `backups` folder in the server dir. */
   backupsDir: string | null;
+  javaArgs: string | null;
+  startCommand: string | null;
+  /** Keep only this many newest backups; null keeps everything. */
+  backupRetention: number | null;
 }
 
 export const api = {

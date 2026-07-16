@@ -126,7 +126,15 @@ pub async fn create_backup(app: &AppHandle, server_id: &str) -> AppResult<Backup
 
     let server_dir = state.server_dir(&config);
     let backups_dir = state.backups_dir(&config);
-    backups::create(server_dir, backups_dir).await
+    let created = backups::create(server_dir, backups_dir.clone()).await?;
+
+    if let Some(keep_newest) = config.backup_retention {
+        let pruned = backups::prune(&backups_dir, keep_newest.max(1))?;
+        if pruned > 0 {
+            eprintln!("pruned {pruned} old backup(s) for {server_id}");
+        }
+    }
+    Ok(created)
 }
 
 async fn wait_until_stopped(app: &AppHandle, server_id: &str) -> AppResult<()> {

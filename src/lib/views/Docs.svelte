@@ -47,6 +47,28 @@
       ],
     },
     {
+      id: "software",
+      emoji: "🧱",
+      title: "Server software",
+      paragraphs: [
+        [
+          {
+            text: "Every major server type installs automatically: Vanilla, the Paper family (Paper, Purpur, Folia), mod loaders (Fabric, Quilt, Forge, NeoForge), hybrids (Mohist, Arclight), Bedrock, and the Velocity/BungeeCord proxies.",
+          },
+        ],
+        [
+          {
+            text: "A few take longer than a download: Spigot is compiled from source with BuildTools (several minutes), and Forge/NeoForge run their official installer after downloading. Bedrock is a native server — no Java at all — available on Windows and Linux.",
+          },
+        ],
+        [
+          { text: "Pick your software on the first screen of the " },
+          { text: "new-server wizard", link: { kind: "view", view: "home" } },
+          { text: "; each type shows its own supported version list." },
+        ],
+      ],
+    },
+    {
       id: "java",
       emoji: "☕",
       title: "Java, automatically",

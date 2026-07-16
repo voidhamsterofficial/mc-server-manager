@@ -78,9 +78,15 @@ pub fn parse_log_level(line: &str) -> LogLevel {
 
 /// Extracts a state-change signal from a log line, if it contains one.
 pub fn parse_signal(line: &str) -> Option<ConsoleSignal> {
-    // Bedrock's log format has no "]: " marker; its ready line is literal.
+    // Bedrock's log format has no "]: " marker; its signals are literal.
     if line.contains("Server started.") {
         return Some(ConsoleSignal::ServerReady);
+    }
+    if let Some(player_name) = bedrock_player_name(line, "Player connected: ") {
+        return Some(ConsoleSignal::PlayerJoined(player_name));
+    }
+    if let Some(player_name) = bedrock_player_name(line, "Player disconnected: ") {
+        return Some(ConsoleSignal::PlayerLeft(player_name));
     }
 
     let message = message_body(line)?;
@@ -99,6 +105,19 @@ pub fn parse_signal(line: &str) -> Option<ConsoleSignal> {
     }
 
     None
+}
+
+/// Bedrock logs `... Player connected: <gamertag>, xuid: <id>` — gamertags
+/// may contain spaces, so the name runs until the comma.
+fn bedrock_player_name(line: &str, marker: &str) -> Option<String> {
+    let marker_position = line.find(marker)?;
+    let after_marker = &line[marker_position + marker.len()..];
+
+    let name = after_marker.split(',').next()?.trim();
+    if name.is_empty() {
+        return None;
+    }
+    Some(name.to_string())
 }
 
 /// Matches `Kicked <name>: <reason>` where the name is a single token.
@@ -451,6 +470,24 @@ mod tests {
     fn ignores_chat_messages_that_mimic_events() {
         let chat_line = "[12:00:00] [Server thread/INFO]: <Alex> somebody joined the game";
         assert_eq!(parse_signal(chat_line), None);
+    }
+
+    #[test]
+    fn detects_bedrock_signals() {
+        let ready = "[2026-07-17 00:00:00:000 INFO] Server started.";
+        assert_eq!(parse_signal(ready), Some(ConsoleSignal::ServerReady));
+
+        let joined = "[2026-07-17 INFO] Player connected: Cool Gamertag 42, xuid: 2535423";
+        assert_eq!(
+            parse_signal(joined),
+            Some(ConsoleSignal::PlayerJoined("Cool Gamertag 42".to_string()))
+        );
+
+        let left = "[2026-07-17 INFO] Player disconnected: Cool Gamertag 42, xuid: 2535423";
+        assert_eq!(
+            parse_signal(left),
+            Some(ConsoleSignal::PlayerLeft("Cool Gamertag 42".to_string()))
+        );
     }
 
     #[test]

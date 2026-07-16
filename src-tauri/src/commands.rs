@@ -131,6 +131,18 @@ pub async fn delete_server(state: State<'_, AppState>, server_id: String) -> App
     if server_dir.exists() {
         std::fs::remove_dir_all(&server_dir)?;
     }
+
+    // A deleted server takes its satellite data with it: scheduled tasks
+    // and player history.
+    {
+        let mut tasks = state.tasks.lock().await;
+        let before = tasks.len();
+        tasks.retain(|task| task.server_id != server_id);
+        if tasks.len() != before {
+            scheduler::save_tasks(&state.tasks_path(), &tasks)?;
+        }
+    }
+    state.rosters.forget(&server_id).await;
     Ok(())
 }
 
@@ -332,9 +344,14 @@ async fn resolve_location_parent(
 pub struct UpdateServerRequest {
     pub name: String,
     pub memory_mb: u32,
+    /// `None` means auto-resolve (or download) a suitable Java.
     pub java_path: Option<PathBuf>,
     /// `None` resets to the default `backups` folder in the server dir.
     pub backups_dir: Option<PathBuf>,
+    pub java_args: Option<String>,
+    pub start_command: Option<String>,
+    /// Keep only this many newest backups; `None` keeps everything.
+    pub backup_retention: Option<u32>,
 }
 
 #[tauri::command]
@@ -360,6 +377,9 @@ pub async fn update_server(
     config.memory_mb = request.memory_mb;
     config.java_path = request.java_path;
     config.backups_dir = request.backups_dir;
+    config.java_args = servers::normalized_option(&request.java_args);
+    config.start_command = servers::normalized_option(&request.start_command);
+    config.backup_retention = request.backup_retention;
     let updated = config.clone();
 
     registry.save(&state.registry_path())?;

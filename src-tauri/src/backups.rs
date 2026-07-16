@@ -60,6 +60,19 @@ pub fn list(backups_dir: &Path) -> AppResult<Vec<BackupInfo>> {
     Ok(backups)
 }
 
+/// Deletes the oldest archives beyond `keep_newest`. Returns how many were
+/// removed.
+pub fn prune(backups_dir: &Path, keep_newest: u32) -> AppResult<u32> {
+    let archives = list(backups_dir)?;
+
+    let mut removed_count = 0;
+    for stale in archives.iter().skip(keep_newest as usize) {
+        delete(backups_dir, &stale.file_name)?;
+        removed_count += 1;
+    }
+    Ok(removed_count)
+}
+
 pub fn delete(backups_dir: &Path, file_name: &str) -> AppResult<()> {
     let archive_path = safe_archive_path(backups_dir, file_name)?;
     std::fs::remove_file(archive_path)?;

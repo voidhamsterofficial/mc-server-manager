@@ -148,6 +148,20 @@ impl RosterStore {
         entries
     }
 
+    /// Drops a deleted server's history from cache and disk.
+    pub async fn forget(&self, server_id: &str) {
+        let mut rosters = self.by_server.lock().await;
+        rosters.remove(server_id);
+
+        let path = roster_path(&self.rosters_dir, server_id);
+        if !path.exists() {
+            return;
+        }
+        if let Err(error) = std::fs::remove_file(&path) {
+            eprintln!("could not remove roster for {server_id}: {error}");
+        }
+    }
+
     fn save(&self, server_id: &str, roster: &Roster) {
         let result = save_roster(&self.rosters_dir, server_id, roster);
         if let Err(error) = result {

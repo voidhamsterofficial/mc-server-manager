@@ -183,6 +183,7 @@
   let startCommand = $state("");
 
   const isProxy = $derived(PROXY_LOADERS.includes(loader));
+  const isBedrock = $derived(loader === "bds");
   const chosenEntry = $derived(
     LOADER_CATALOG.flatMap((group) => group.entries).find((entry) => entry.value === loader),
   );
@@ -324,7 +325,7 @@
 
 <Modal
   {open}
-  wide={step === "software"}
+  wide
   title={step === "software" ? "Pick your server software 🧱" : "New server 🍰"}
   onclose={creating ? undefined : handleClose}
 >
@@ -363,75 +364,79 @@
         <span class="chosen-change">change</span>
       </button>
 
-      <label>
-        <span>Name</span>
-        <input
-          type="text"
-          bind:value={name}
-          placeholder="My cozy world"
-          maxlength={SERVER_NAME_MAX_LENGTH}
-        />
-      </label>
-
-      <div class="row">
-        <label class="grow">
-          <span>Version</span>
-          {#if loadingVersions}
-            <div class="loading">Fetching versions… ⛏️</div>
-          {:else}
-            <select bind:value={selectedVersion}>
-              {#each visibleVersions as version (version.id)}
-                <option value={version.id}>{version.id}</option>
-              {/each}
-            </select>
-          {/if}
-        </label>
-        <label class="port-label">
-          <span>Port</span>
-          <input
-            type="number"
-            min="1024"
-            max="65535"
-            bind:value={port}
-            oninput={() => (portTouched = true)}
-          />
-        </label>
-      </div>
-
-      {#if hasSnapshots}
-        <label class="checkbox">
-          <input type="checkbox" bind:checked={showSnapshots} />
-          <span>Show snapshots</span>
-        </label>
-      {/if}
-
-      {#if isProxy}
-        <p class="hint">
-          Proxies keep their port in their own config (velocity.toml / config.yml) —
-          set it there after the first start.
-        </p>
-      {/if}
-
-      <label>
-        <span>Memory — {memoryMb} MB</span>
-        <input
-          type="range"
-          min={MEMORY_MIN_MB}
-          max={MEMORY_MAX_MB}
-          step={MEMORY_STEP_MB}
-          bind:value={memoryMb}
-        />
-      </label>
-
-      <div class="location">
-        <span class="location-label">📁 Save location</span>
-        <div class="location-row">
-          <span class="location-path" title={locationPreview}>
-            {locationPreview || "…"}
-          </span>
-          <Button variant="soft" onclick={browseLocation}>Browse…</Button>
+      <section class="group">
+        <h4>🧱 Basics</h4>
+        <div class="group-grid">
+          <label class="grow">
+            <span>Name</span>
+            <input
+              type="text"
+              bind:value={name}
+              placeholder="My cozy world"
+              maxlength={SERVER_NAME_MAX_LENGTH}
+            />
+          </label>
+          <label class="grow">
+            <span>Version</span>
+            {#if loadingVersions}
+              <div class="loading">Fetching versions… ⛏️</div>
+            {:else}
+              <select bind:value={selectedVersion}>
+                {#each visibleVersions as version (version.id)}
+                  <option value={version.id}>{version.id}</option>
+                {/each}
+              </select>
+            {/if}
+          </label>
+          <label class="port-label">
+            <span>Port</span>
+            <input
+              type="number"
+              min="1024"
+              max="65535"
+              bind:value={port}
+              oninput={() => (portTouched = true)}
+            />
+          </label>
         </div>
-      </div>
+        {#if hasSnapshots}
+          <label class="checkbox">
+            <input type="checkbox" bind:checked={showSnapshots} />
+            <span>Show snapshots</span>
+          </label>
+        {/if}
+        {#if isProxy}
+          <p class="hint">
+            Proxies keep their port in their own config (velocity.toml / config.yml) —
+            set it there after the first start.
+          </p>
+        {/if}
+      </section>
+
+      <section class="group">
+        <h4>💾 Resources & storage</h4>
+        {#if !isBedrock}
+          <label>
+            <span>Memory — {memoryMb} MB</span>
+            <input
+              type="range"
+              min={MEMORY_MIN_MB}
+              max={MEMORY_MAX_MB}
+              step={MEMORY_STEP_MB}
+              bind:value={memoryMb}
+            />
+          </label>
+        {/if}
+        <div class="location">
+          <span class="field-label">📁 Save location</span>
+          <div class="location-row">
+            <span class="location-path" title={locationPreview}>
+              {locationPreview || "…"}
+            </span>
+            <Button variant="soft" onclick={browseLocation}>Browse…</Button>
+          </div>
+        </div>
+      </section>
 
       {#if !isProxy}
         <label class="checkbox eula">
@@ -443,26 +448,28 @@
         </label>
       {/if}
 
-      <div class="advanced">
+      <section class="group">
         <button
           type="button"
           class="advanced-toggle"
           onclick={() => (advancedOpen = !advancedOpen)}
         >
           <span class="chevron" class:open={advancedOpen}>▸</span>
-          Advanced
+          🛠️ Advanced
         </button>
         {#if advancedOpen}
           <div class="advanced-body">
-            <label>
-              <span>Extra JVM arguments</span>
-              <input
-                type="text"
-                bind:value={javaArgs}
-                placeholder="-XX:+UseG1GC -XX:MaxGCPauseMillis=200"
-                spellcheck="false"
-              />
-            </label>
+            {#if !isBedrock}
+              <label>
+                <span>Extra JVM arguments</span>
+                <input
+                  type="text"
+                  bind:value={javaArgs}
+                  placeholder="-XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+                  spellcheck="false"
+                />
+              </label>
+            {/if}
             <label>
               <span>Custom start command (overrides everything)</span>
               <input
@@ -473,12 +480,12 @@
               />
             </label>
             <p class="hint">
-              The custom command runs from the server folder and replaces the java
-              invocation entirely — memory and JVM args above are ignored.
+              The custom command runs from the server folder and replaces the normal
+              launch entirely — memory and JVM args above are ignored.
             </p>
           </div>
         {/if}
-      </div>
+      </section>
 
       {#if creating}
         <div class="progress">
@@ -585,11 +592,45 @@
     line-height: 1.3;
   }
 
-  /* --- Step 2: details --------------------------------------------------- */
+  /* --- Step 2: details, carded like the rest of the app ------------------ */
   form {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.9rem;
+  }
+
+  .group {
+    background: color-mix(in srgb, var(--surface-2) 45%, var(--surface));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 0.9rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .group h4 {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .group-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 110px;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 700px) {
+    .group-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .field-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--muted);
   }
 
   .chosen {
@@ -627,19 +668,12 @@
     color: var(--muted);
   }
 
-  .row {
-    display: flex;
-    gap: 0.75rem;
-  }
-
   .grow {
-    flex: 1;
     min-width: 0;
   }
 
   .port-label {
-    width: 110px;
-    flex-shrink: 0;
+    min-width: 0;
   }
 
   input[type="text"],
@@ -651,6 +685,7 @@
     background: var(--surface-2);
     border: 2px solid transparent;
     border-radius: var(--radius-md);
+    box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.12);
     padding: 0.6em 0.9em;
     outline: none;
     transition: border-color 0.18s ease;
@@ -693,12 +728,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
-  }
-
-  .location-label {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--muted);
   }
 
   .location-row {

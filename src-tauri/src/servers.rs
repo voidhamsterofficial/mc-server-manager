@@ -73,6 +73,9 @@ pub struct ServerConfig {
     /// Full launch command override; replaces the java invocation entirely.
     #[serde(default)]
     pub start_command: Option<String>,
+    /// Keep only this many newest backups; `None` keeps everything.
+    #[serde(default)]
+    pub backup_retention: Option<u32>,
     pub created_at_unix: u64,
 }
 
@@ -182,12 +185,13 @@ pub fn new_server_config(request: &CreateServerRequest, dir: PathBuf) -> ServerC
         backups_dir: None,
         java_args: normalized_option(&request.java_args),
         start_command: normalized_option(&request.start_command),
+        backup_retention: None,
         created_at_unix,
     }
 }
 
 /// Trims a free-text option; whitespace-only input means "not set".
-fn normalized_option(value: &Option<String>) -> Option<String> {
+pub(crate) fn normalized_option(value: &Option<String>) -> Option<String> {
     let trimmed = value.as_deref().map(str::trim).unwrap_or("");
     if trimmed.is_empty() {
         return None;

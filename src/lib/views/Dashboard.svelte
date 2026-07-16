@@ -57,10 +57,11 @@
   }
 
   /* auto-fit collapses unused tracks, so few servers get comfortably wide
-     cards (up to 560px) instead of huddling in narrow slots. */
+     cards (up to 560px) instead of huddling in narrow slots. The 320px
+     minimum guarantees two columns at the default window size. */
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(340px, 560px));
+    grid-template-columns: repeat(auto-fit, minmax(320px, 560px));
     gap: 1.4rem;
   }
 

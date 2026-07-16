@@ -26,11 +26,13 @@ cross-platform alternative to tools like MC Server Soft.
 
 - [x] Automatic Temurin JRE download when no suitable Java is installed
 - [x] Online player list, kick/ban/op, whitelist editor, `server.properties` editor
-- [x] Backups (manual + scheduled) and a task scheduler
+- [x] Backups (manual + scheduled), per-server retention, and a task scheduler
 - [x] Live CPU / memory / uptime dashboard
-- [x] Paper / Purpur / Folia / Fabric / Velocity / BungeeCord installers
-- [x] Port selection and custom JVM args / start command per server
-- [ ] Forge / NeoForge / Quilt / Spigot / Arclight / Mohist / Bedrock installers
+- [x] Installers for every major server type: Vanilla, Paper, Purpur, Folia,
+  Spigot (BuildTools), Fabric, Quilt, Forge, NeoForge, Mohist, Arclight,
+  Bedrock, Velocity, and BungeeCord
+- [x] Port selection, per-server Java/JVM args/start command, server icons,
+  and an MOTD editor with live preview
 
 ## 🚀 Getting started
 
