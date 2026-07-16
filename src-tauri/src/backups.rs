@@ -190,3 +190,43 @@ fn modified_unix_time(metadata: &std::fs::Metadata) -> u64 {
     let seconds = since_epoch.map(|duration| duration.as_secs());
     seconds.unwrap_or(0)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    /// The backups folder lives inside the server folder by default, so the
+    /// zipper must skip it — otherwise every backup would contain all
+    /// previous backups and grow without bound.
+    #[test]
+    fn zipping_excludes_the_backups_folder() {
+        let temp_root =
+            std::env::temp_dir().join(format!("blockparty-test-{}", uuid::Uuid::new_v4()));
+        let server_dir = temp_root.join("server");
+        let backups_dir = server_dir.join("backups");
+        std::fs::create_dir_all(server_dir.join("world")).expect("create world dir");
+        std::fs::create_dir_all(&backups_dir).expect("create backups dir");
+        std::fs::write(server_dir.join("server.properties"), "pvp=true").expect("write props");
+        std::fs::write(server_dir.join("world").join("level.dat"), "data").expect("write level");
+        std::fs::write(backups_dir.join("backup-old.zip"), "old archive").expect("write old zip");
+
+        let mut buffer = Cursor::new(Vec::new());
+        zip_directory(&server_dir, &backups_dir, &mut buffer).expect("zip");
+
+        let mut archive = zip::ZipArchive::new(buffer).expect("open archive");
+        let entry_names: Vec<String> = (0..archive.len())
+            .map(|index| archive.by_index(index).expect("entry").name().to_string())
+            .collect();
+
+        assert!(entry_names.iter().any(|name| name == "server.properties"));
+        assert!(entry_names.iter().any(|name| name == "world/level.dat"));
+        let contains_old_backups = entry_names.iter().any(|name| name.starts_with("backups"));
+        assert!(
+            !contains_old_backups,
+            "archive must not contain the backups folder: {entry_names:?}"
+        );
+
+        std::fs::remove_dir_all(&temp_root).expect("cleanup");
+    }
+}
