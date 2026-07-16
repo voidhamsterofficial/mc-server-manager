@@ -269,7 +269,7 @@
     color: var(--text);
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: var(--radius-md);
     box-shadow: var(--shadow-pop);
     padding: 0.6em 1.2em;
     z-index: 90;

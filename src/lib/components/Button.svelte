@@ -35,7 +35,7 @@
     font-size: 0.95rem;
     font-weight: 600;
     border: none;
-    border-radius: 999px;
+    border-radius: 8px;
     padding: 0.65em 1.25em;
     cursor: pointer;
     white-space: nowrap;

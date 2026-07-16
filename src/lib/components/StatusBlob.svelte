@@ -62,8 +62,9 @@
     line-height: 1;
     color: var(--blob-color);
     background: var(--blob-soft);
-    padding: 0.42em 0.85em 0.42em 0.65em;
-    border-radius: 999px;
+    padding: 0.45em 0.85em 0.45em 0.65em;
+    border-radius: var(--radius-sm);
+    box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.12);
     white-space: nowrap;
     flex-shrink: 0;
   }

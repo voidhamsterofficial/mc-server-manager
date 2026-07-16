@@ -86,7 +86,7 @@
     color: var(--text);
     background: var(--surface);
     border: 2px solid var(--border);
-    border-radius: 999px;
+    border-radius: var(--radius-md);
     padding: 0.6em 1.1em;
     outline: none;
     transition: border-color 0.18s ease;

@@ -201,7 +201,7 @@
     font-size: 0.9rem;
     font-weight: 700;
     padding: 0.65em 1.1em;
-    border-radius: 999px;
+    border-radius: var(--radius-md);
     cursor: pointer;
     transition:
       background-color var(--duration-fast) var(--ease-out),

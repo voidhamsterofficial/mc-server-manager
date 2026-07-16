@@ -168,7 +168,7 @@
     font-weight: 700;
     color: var(--accent-strong);
     background: var(--accent-soft);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     padding: 0.2em 0.7em;
   }
 

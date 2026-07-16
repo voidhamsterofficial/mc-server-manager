@@ -302,7 +302,7 @@
     font-weight: 700;
     color: var(--accent-strong);
     background: var(--accent-soft);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     padding: 0.15em 0.65em;
   }
 
@@ -353,7 +353,7 @@
   .badge {
     font-size: 0.72rem;
     font-weight: 700;
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     padding: 0.2em 0.65em;
     white-space: nowrap;
   }

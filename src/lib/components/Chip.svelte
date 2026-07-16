@@ -20,7 +20,8 @@
     line-height: 1;
     color: var(--muted);
     background: var(--surface-2);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
+    box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.12);
     padding: 0.45em 0.85em;
     text-transform: capitalize;
     white-space: nowrap;
