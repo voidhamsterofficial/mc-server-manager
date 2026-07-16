@@ -117,7 +117,7 @@ pub async fn create_backup(app: &AppHandle, server_id: &str) -> AppResult<Backup
     }
 
     let server_dir = state.server_dir(&config);
-    let backups_dir = state.backups_dir(server_id);
+    let backups_dir = state.backups_dir(&config);
     backups::create(server_dir, backups_dir).await
 }
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
-  import { api, type BackupInfo, type ServerConfig } from "../../api";
+  import { api, resolveBackupsDir, type BackupInfo, type ServerConfig } from "../../api";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
   import { formatBytes, formatDateTime } from "../../format";
@@ -70,10 +70,16 @@
 
 <div class="backups-tab">
   <div class="head">
-    <p class="hint">
-      Backups zip the whole server folder.
-      {#if !isStopped}A running server is flushed with <code>save-all</code> first.{/if}
-    </p>
+    <div class="head-text">
+      <p class="hint">
+        Backups zip the whole server folder.
+        {#if !isStopped}A running server is flushed with <code>save-all</code> first.{/if}
+        Change the location in the Settings tab.
+      </p>
+      <code class="location" title={resolveBackupsDir(server)}>
+        📁 {resolveBackupsDir(server)}
+      </code>
+    </div>
     <Button disabled={working} onclick={createBackup}>
       {working ? "Working…" : "🎁 Back up now"}
     </Button>
@@ -138,9 +144,28 @@
 
   .head {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
+  }
+
+  .head-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .location {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text);
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    padding: 0.4em 0.7em;
+    overflow-wrap: break-word;
+    word-break: break-all;
+    user-select: text;
   }
 
   .hint {

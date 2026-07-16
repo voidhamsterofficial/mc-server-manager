@@ -77,9 +77,13 @@ impl AppState {
         self.data_dir.join(TASKS_FILE_NAME)
     }
 
-    /// Where one server's backup archives live.
-    pub fn backups_dir(&self, server_id: &str) -> PathBuf {
-        self.data_dir.join(BACKUPS_DIR_NAME).join(server_id)
+    /// Where one server's backup archives live: the per-server override, or
+    /// a `backups` folder inside the server directory by default.
+    pub fn backups_dir(&self, config: &ServerConfig) -> PathBuf {
+        if let Some(chosen_dir) = &config.backups_dir {
+            return chosen_dir.clone();
+        }
+        self.server_dir(config).join(BACKUPS_DIR_NAME)
     }
 
     /// A server's files directory. Servers created before custom locations

@@ -14,7 +14,18 @@ export interface ServerConfig {
   loader: Loader;
   memoryMb: number;
   javaPath: string | null;
+  dir: string;
+  backupsDir: string | null;
   createdAtUnix: number;
+}
+
+/** Where a server's backups land: the override, or `backups` in its dir. */
+export function resolveBackupsDir(server: ServerConfig): string {
+  if (server.backupsDir !== null) {
+    return server.backupsDir;
+  }
+  const separator = server.dir.includes("/") ? "/" : "\\";
+  return `${server.dir}${separator}backups`;
 }
 
 export interface McVersion {
@@ -73,6 +84,8 @@ export interface UpdateServerRequest {
   name: string;
   memoryMb: number;
   javaPath: string | null;
+  /** null resets to the default `backups` folder in the server dir. */
+  backupsDir: string | null;
 }
 
 export const api = {

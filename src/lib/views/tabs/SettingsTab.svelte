@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { api, type Property, type ServerConfig } from "../../api";
+  import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
+  import { api, resolveBackupsDir, type Property, type ServerConfig } from "../../api";
   import {
     MEMORY_MAX_MB,
     MEMORY_MIN_MB,
@@ -16,10 +17,15 @@
 
   let { server }: Props = $props();
 
-  // --- Server config (name / memory / java) ---
+  // --- Server config (name / memory / backups location) ---
   let editedName = $state("");
   let editedMemoryMb = $state(0);
+  let editedBackupsDir = $state<string | null>(null);
   let savingConfig = $state(false);
+
+  const backupsDirPreview = $derived(
+    editedBackupsDir ?? resolveBackupsDir({ ...server, backupsDir: null }),
+  );
 
   // --- server.properties ---
   let properties = $state<Property[]>([]);
@@ -44,8 +50,19 @@
   $effect(() => {
     editedName = server.name;
     editedMemoryMb = server.memoryMb;
+    editedBackupsDir = server.backupsDir;
     loadProperties(server.id);
   });
+
+  async function browseBackupsDir() {
+    const picked = await openFolderDialog({
+      directory: true,
+      title: "Choose where this server's backups go",
+    });
+    if (typeof picked === "string") {
+      editedBackupsDir = picked;
+    }
+  }
 
   async function loadProperties(serverId: string) {
     loadingProperties = true;
@@ -88,6 +105,7 @@
         name: editedName,
         memoryMb: editedMemoryMb,
         javaPath: server.javaPath,
+        backupsDir: editedBackupsDir,
       });
       await serversStore.refresh();
       toastsStore.success("Server settings saved 💾");
@@ -131,6 +149,18 @@
           bind:value={editedMemoryMb}
         />
       </label>
+    </div>
+    <div class="backups-row">
+      <span class="backups-label">🎁 Backups folder</span>
+      <div class="backups-controls">
+        <code class="backups-path" title={backupsDirPreview}>{backupsDirPreview}</code>
+        <Button variant="soft" onclick={browseBackupsDir}>Browse…</Button>
+        {#if editedBackupsDir !== null}
+          <Button variant="ghost" onclick={() => (editedBackupsDir = null)}>
+            Reset to default
+          </Button>
+        {/if}
+      </div>
     </div>
     <div class="card-actions">
       <span class="hint">Changes apply on the next start.</span>
@@ -279,6 +309,40 @@
     height: 1.15rem;
     accent-color: var(--accent);
     justify-self: start;
+  }
+
+  .backups-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-top: 0.9rem;
+  }
+
+  .backups-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .backups-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .backups-path {
+    flex: 1;
+    min-width: 200px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text);
+    background: var(--surface-2);
+    border-radius: var(--radius-md);
+    padding: 0.55em 0.9em;
+    overflow-wrap: break-word;
+    word-break: break-all;
+    user-select: text;
   }
 
   .card-actions {

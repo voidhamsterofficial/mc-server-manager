@@ -45,6 +45,10 @@ pub struct ServerConfig {
     /// custom locations existed (resolved to the legacy app-data path).
     #[serde(default)]
     pub dir: PathBuf,
+    /// Where this server's backups go; `None` means the default
+    /// `backups` folder inside the server directory.
+    #[serde(default)]
+    pub backups_dir: Option<PathBuf>,
     pub created_at_unix: u64,
 }
 
@@ -142,6 +146,7 @@ pub fn new_server_config(request: &CreateServerRequest, dir: PathBuf) -> ServerC
         memory_mb: request.memory_mb,
         java_path: None,
         dir,
+        backups_dir: None,
         created_at_unix,
     }
 }

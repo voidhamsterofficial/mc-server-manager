@@ -213,6 +213,8 @@ pub struct UpdateServerRequest {
     pub name: String,
     pub memory_mb: u32,
     pub java_path: Option<PathBuf>,
+    /// `None` resets to the default `backups` folder in the server dir.
+    pub backups_dir: Option<PathBuf>,
 }
 
 #[tauri::command]
@@ -237,6 +239,7 @@ pub async fn update_server(
     config.name = trimmed_name.to_string();
     config.memory_mb = request.memory_mb;
     config.java_path = request.java_path;
+    config.backups_dir = request.backups_dir;
     let updated = config.clone();
 
     registry.save(&state.registry_path())?;
@@ -279,10 +282,12 @@ pub async fn create_backup(app: AppHandle, server_id: String) -> AppResult<Backu
 
 #[tauri::command]
 pub async fn list_backups(
+    app: AppHandle,
     state: State<'_, AppState>,
     server_id: String,
 ) -> AppResult<Vec<BackupInfo>> {
-    backups::list(&state.backups_dir(&server_id))
+    let config = service::find_config(&app, &server_id).await?;
+    backups::list(&state.backups_dir(&config))
 }
 
 #[tauri::command]
@@ -299,17 +304,19 @@ pub async fn restore_backup(
 
     let config = service::find_config(&app, &server_id).await?;
     let server_dir = state.server_dir(&config);
-    let archive_path = backups::safe_archive_path(&state.backups_dir(&server_id), &file_name)?;
+    let archive_path = backups::safe_archive_path(&state.backups_dir(&config), &file_name)?;
     backups::restore(server_dir, archive_path).await
 }
 
 #[tauri::command]
 pub async fn delete_backup(
+    app: AppHandle,
     state: State<'_, AppState>,
     server_id: String,
     file_name: String,
 ) -> AppResult<()> {
-    backups::delete(&state.backups_dir(&server_id), &file_name)
+    let config = service::find_config(&app, &server_id).await?;
+    backups::delete(&state.backups_dir(&config), &file_name)
 }
 
 #[tauri::command]

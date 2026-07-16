@@ -86,7 +86,7 @@ fn create_sync(server_dir: &Path, backups_dir: &Path) -> AppResult<BackupInfo> {
     let archive_path = backups_dir.join(&file_name);
 
     let archive_file = std::fs::File::create(&archive_path)?;
-    zip_directory(server_dir, archive_file)?;
+    zip_directory(server_dir, backups_dir, archive_file)?;
 
     let metadata = std::fs::metadata(&archive_path)?;
     let info = BackupInfo {
@@ -97,12 +97,22 @@ fn create_sync(server_dir: &Path, backups_dir: &Path) -> AppResult<BackupInfo> {
     Ok(info)
 }
 
-fn zip_directory<W: Write + Seek>(source_dir: &Path, destination: W) -> AppResult<()> {
+/// Zips `source_dir`, skipping `excluded_dir` (the backups folder itself,
+/// which by default lives inside the server directory — otherwise every
+/// backup would swallow all previous ones).
+fn zip_directory<W: Write + Seek>(
+    source_dir: &Path,
+    excluded_dir: &Path,
+    destination: W,
+) -> AppResult<()> {
     let mut writer = zip::ZipWriter::new(destination);
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
 
-    for entry in walkdir::WalkDir::new(source_dir) {
+    let walker = walkdir::WalkDir::new(source_dir)
+        .into_iter()
+        .filter_entry(|entry| entry.path() != excluded_dir);
+    for entry in walker {
         let entry = entry.map_err(|walk_error| AppError::Process(walk_error.to_string()))?;
         add_zip_entry(&mut writer, source_dir, entry.path(), options)?;
     }
