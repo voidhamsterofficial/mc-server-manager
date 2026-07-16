@@ -5,6 +5,10 @@
   import AppSettings from "./lib/views/AppSettings.svelte";
   import Docs from "./lib/views/Docs.svelte";
   import Button from "./lib/components/Button.svelte";
+  import ContextMenu from "./lib/components/ContextMenu.svelte";
+  import CreateServerWizard from "./lib/views/CreateServerWizard.svelte";
+  import { contextMenuStore, type MenuEntry } from "./lib/stores/contextMenu.svelte";
+  import { openPath } from "@tauri-apps/plugin-opener";
   import { api, type ServerConfig } from "./lib/api";
   import Toasts from "./lib/components/Toasts.svelte";
   import Confetti from "./lib/components/Confetti.svelte";
@@ -36,6 +40,7 @@
 
   let route = $state<Route>({ view: "home" });
   let confettiBurst = $state(0);
+  let wizardOpen = $state(false);
   let javaDownload = $state<InstallProgressEvent | null>(null);
   let javaPillTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -129,6 +134,108 @@
   const backupAll = () =>
     bulkRun("Backed up", serversStore.servers, (server) => api.createBackup(server.id));
 
+  // --- Context menus ------------------------------------------------------
+
+  async function runWithToast(action: () => Promise<unknown>, successMessage?: string) {
+    try {
+      await action();
+      if (successMessage) {
+        toastsStore.success(successMessage);
+      }
+    } catch (error) {
+      toastsStore.error(String(error));
+    }
+  }
+
+  function serverMenuEntries(server: ServerConfig): MenuEntry[] {
+    const status = serversStore.statusOf(server.id);
+    const canStart = status === "stopped" || status === "crashed";
+
+    const entries: MenuEntry[] = [
+      {
+        label: "Open",
+        emoji: "🖥",
+        action: () => (route = { view: "server", serverId: server.id }),
+      },
+      "separator",
+    ];
+
+    if (canStart) {
+      entries.push({
+        label: "Start",
+        emoji: "▶",
+        action: () => runWithToast(() => api.startServer(server.id)),
+      });
+    } else {
+      entries.push(
+        {
+          label: "Restart",
+          emoji: "🔄",
+          action: () => runWithToast(() => api.restartServer(server.id)),
+        },
+        {
+          label: "Stop",
+          emoji: "⏹",
+          action: () => runWithToast(() => api.stopServer(server.id)),
+        },
+        {
+          label: "Kill",
+          emoji: "☠",
+          danger: true,
+          action: () => runWithToast(() => api.killServer(server.id)),
+        },
+      );
+    }
+
+    entries.push(
+      {
+        label: "Back up now",
+        emoji: "🎁",
+        action: () =>
+          runWithToast(() => api.createBackup(server.id), `Backed up "${server.name}" 🎁`),
+      },
+      {
+        label: "Open folder",
+        emoji: "📂",
+        disabled: server.dir === "",
+        action: () => runWithToast(() => openPath(server.dir)),
+      },
+    );
+    return entries;
+  }
+
+  function appMenuEntries(): MenuEntry[] {
+    return [
+      { label: "New server", emoji: "➕", action: () => (wizardOpen = true) },
+      {
+        label: "Refresh",
+        emoji: "🔄",
+        action: () => runWithToast(() => serversStore.refresh()),
+      },
+      "separator",
+      { label: "Start all", emoji: "▶", action: startAll },
+      { label: "Stop all", emoji: "⏹", action: stopAll },
+      { label: "Back up all", emoji: "🎁", action: backupAll },
+      "separator",
+      { label: "Docs", emoji: "📖", action: () => (route = { view: "docs" }) },
+      { label: "Settings", emoji: "⚙", action: () => (route = { view: "settings" }) },
+    ];
+  }
+
+  function showServerMenu(event: MouseEvent, server: ServerConfig) {
+    contextMenuStore.show(event, serverMenuEntries(server));
+  }
+
+  // Everywhere else: the app menu — except text fields, which keep the
+  // native copy/paste menu.
+  function handleGlobalContextMenu(event: MouseEvent) {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("input, textarea, select, [contenteditable]")) {
+      return;
+    }
+    contextMenuStore.show(event, appMenuEntries());
+  }
+
   onMount(() => {
     serversStore.refresh().catch((error) => toastsStore.error(String(error)));
 
@@ -180,6 +287,7 @@
           class="server-item"
           class:active={route.view === "server" && route.serverId === server.id}
           onclick={() => (route = { view: "server", serverId: server.id })}
+          oncontextmenu={(event) => showServerMenu(event, server)}
           title={server.name}
         >
           <StatusBlob status={serversStore.statusOf(server.id)} />
@@ -223,7 +331,11 @@
       {:else if route.view === "docs"}
         <Docs onopenview={(view) => (route = { view })} />
       {:else}
-        <Dashboard onopen={(serverId) => (route = { view: "server", serverId })} />
+        <Dashboard
+          onopen={(serverId) => (route = { view: "server", serverId })}
+          onnew={() => (wizardOpen = true)}
+          onservermenu={showServerMenu}
+        />
       {/if}
     </main>
   </div>
@@ -236,6 +348,10 @@
   </div>
 {/if}
 
+<svelte:window oncontextmenu={handleGlobalContextMenu} />
+
+<CreateServerWizard open={wizardOpen} onclose={() => (wizardOpen = false)} />
+<ContextMenu />
 <Toasts />
 <Confetti trigger={confettiBurst} />
 

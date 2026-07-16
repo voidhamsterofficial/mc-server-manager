@@ -10,9 +10,10 @@
   interface Props {
     server: ServerConfig;
     onopen: () => void;
+    oncontextmenu?: (event: MouseEvent) => void;
   }
 
-  let { server, onopen }: Props = $props();
+  let { server, onopen, oncontextmenu }: Props = $props();
 
   let busy = $state(false);
 
@@ -42,6 +43,7 @@
   class="card"
   in:fade={{ duration: 120 }}
   onclick={onopen}
+  {oncontextmenu}
   onkeydown={(event) => event.key === "Enter" && onopen()}
   role="button"
   tabindex="0"
@@ -75,6 +77,8 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-soft);
+    width: 100%;
+    max-width: 560px;
     padding: 1.4rem 1.5rem;
     display: flex;
     flex-direction: column;

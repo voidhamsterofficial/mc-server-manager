@@ -1,41 +1,43 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
   import { serversStore } from "../stores/servers.svelte";
+  import type { ServerConfig } from "../api";
   import ServerCard from "../components/ServerCard.svelte";
   import Button from "../components/Button.svelte";
-  import CreateServerWizard from "./CreateServerWizard.svelte";
 
   interface Props {
     onopen: (serverId: string) => void;
+    onnew: () => void;
+    onservermenu: (event: MouseEvent, server: ServerConfig) => void;
   }
 
-  let { onopen }: Props = $props();
-
-  let wizardOpen = $state(false);
+  let { onopen, onnew, onservermenu }: Props = $props();
 </script>
 
 <section class="dashboard">
   <div class="head">
     <h1>Your servers</h1>
-    <Button onclick={() => (wizardOpen = true)}>＋ New server</Button>
+    <Button onclick={onnew}>＋ New server</Button>
   </div>
 
   {#if serversStore.servers.length === 0}
     <div class="empty" in:fade={{ duration: 120 }}>
       <span class="egg">🥚</span>
       <p>No servers yet — let's hatch your first one!</p>
-      <Button onclick={() => (wizardOpen = true)}>Create a server</Button>
+      <Button onclick={onnew}>Create a server</Button>
     </div>
   {:else}
     <div class="grid">
       {#each serversStore.servers as server (server.id)}
-        <ServerCard {server} onopen={() => onopen(server.id)} />
+        <ServerCard
+          {server}
+          onopen={() => onopen(server.id)}
+          oncontextmenu={(event) => onservermenu(event, server)}
+        />
       {/each}
     </div>
   {/if}
 </section>
-
-<CreateServerWizard open={wizardOpen} onclose={() => (wizardOpen = false)} />
 
 <style>
   .dashboard {
@@ -56,12 +58,13 @@
     margin: 0;
   }
 
-  /* auto-fit collapses unused tracks, so few servers get comfortably wide
-     cards (up to 560px) instead of huddling in narrow slots. The 320px
-     minimum guarantees two columns at the default window size. */
+  /* auto-fit + a 1fr max counts columns from the 320px minimum (a definite
+     max like 560px would count from the max and waste a whole column of
+     space); the card itself caps its width so a lone server isn't a
+     screen-wide slab. */
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 560px));
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 1.4rem;
   }
 
