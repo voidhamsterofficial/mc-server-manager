@@ -18,7 +18,7 @@ use crate::error::{AppError, AppResult};
 use crate::events;
 use crate::installers::vanilla::SERVER_JAR_NAME;
 use crate::platform;
-use crate::servers::{ServerConfig, ServerStatus};
+use crate::servers::{Loader, ServerConfig, ServerStatus};
 
 /// How long buffered console lines wait before being flushed to the UI.
 /// Batching keeps event traffic low when the server logs in bursts.
@@ -385,7 +385,7 @@ fn spawn_java_process(
     server_dir: &Path,
     java_executable: &Path,
 ) -> AppResult<Child> {
-    let mut command = build_launch_command(config, java_executable)?;
+    let mut command = build_launch_command(config, server_dir, java_executable)?;
     command
         .current_dir(server_dir)
         .stdin(Stdio::piped())
@@ -398,11 +398,33 @@ fn spawn_java_process(
     Ok(child)
 }
 
-/// The process to launch: either the user's custom start command, or the
-/// standard `java [flags] -jar server.jar [nogui]` invocation.
-fn build_launch_command(config: &ServerConfig, java_executable: &Path) -> AppResult<Command> {
+/// How a loader's installed files are launched.
+enum LaunchTarget {
+    /// `java ... -jar <name>`
+    Jar(String),
+    /// `java ... @<argsfile>` — modern Forge/NeoForge installs.
+    ArgsFile(std::path::PathBuf),
+}
+
+/// The process to launch: the user's custom start command, the native
+/// Bedrock binary, or a java invocation shaped for the loader.
+fn build_launch_command(
+    config: &ServerConfig,
+    server_dir: &Path,
+    java_executable: &Path,
+) -> AppResult<Command> {
     if let Some(custom_command) = &config.start_command {
         return parse_custom_command(custom_command);
+    }
+
+    if config.loader == Loader::Bds {
+        let binary_name = if cfg!(windows) {
+            "bedrock_server.exe"
+        } else {
+            "bedrock_server"
+        };
+        let command = Command::new(server_dir.join(binary_name));
+        return Ok(command);
     }
 
     let max_heap_flag = format!("-Xmx{}M", config.memory_mb);
@@ -413,11 +435,76 @@ fn build_launch_command(config: &ServerConfig, java_executable: &Path) -> AppRes
     if let Some(java_args) = &config.java_args {
         command.args(java_args.split_whitespace());
     }
-    command.args(["-jar", SERVER_JAR_NAME]);
+
+    match launch_target(config.loader, server_dir) {
+        LaunchTarget::Jar(jar_name) => {
+            command.args(["-jar", &jar_name]);
+        }
+        LaunchTarget::ArgsFile(args_path) => {
+            command.arg(format!("@{}", args_path.display()));
+        }
+    }
     if !config.loader.is_proxy() {
         command.arg("nogui");
     }
     Ok(command)
+}
+
+fn launch_target(loader: Loader, server_dir: &Path) -> LaunchTarget {
+    match loader {
+        Loader::Forge => forge_family_target(server_dir, "net/minecraftforge/forge"),
+        Loader::NeoForge => forge_family_target(server_dir, "net/neoforged/neoforge"),
+        Loader::Quilt => {
+            let quilt_launcher = "quilt-server-launch.jar";
+            if server_dir.join(quilt_launcher).exists() {
+                return LaunchTarget::Jar(quilt_launcher.to_string());
+            }
+            LaunchTarget::Jar(SERVER_JAR_NAME.to_string())
+        }
+        _ => LaunchTarget::Jar(SERVER_JAR_NAME.to_string()),
+    }
+}
+
+/// Modern Forge/NeoForge installs launch via an args file under
+/// `libraries/<vendor>/<version>/`; legacy Forge produced a plain jar.
+fn forge_family_target(server_dir: &Path, vendor_subpath: &str) -> LaunchTarget {
+    if let Some(args_file) = find_args_file(server_dir, vendor_subpath) {
+        return LaunchTarget::ArgsFile(args_file);
+    }
+    if let Some(legacy_jar) = find_jar_with_prefix(server_dir, "forge-") {
+        return LaunchTarget::Jar(legacy_jar);
+    }
+    LaunchTarget::Jar(SERVER_JAR_NAME.to_string())
+}
+
+fn find_args_file(server_dir: &Path, vendor_subpath: &str) -> Option<std::path::PathBuf> {
+    let args_file_name = if cfg!(windows) {
+        "win_args.txt"
+    } else {
+        "unix_args.txt"
+    };
+    let vendor_dir = server_dir.join("libraries").join(vendor_subpath);
+
+    for entry in std::fs::read_dir(vendor_dir).ok()?.flatten() {
+        let candidate = entry.path().join(args_file_name);
+        if candidate.exists() {
+            // Relative to the server dir (the working directory), matching
+            // the relative paths inside the args file itself.
+            let relative = candidate.strip_prefix(server_dir).ok()?.to_path_buf();
+            return Some(relative);
+        }
+    }
+    None
+}
+
+fn find_jar_with_prefix(server_dir: &Path, prefix: &str) -> Option<String> {
+    for entry in std::fs::read_dir(server_dir).ok()?.flatten() {
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        if file_name.starts_with(prefix) && file_name.ends_with(".jar") {
+            return Some(file_name);
+        }
+    }
+    None
 }
 
 /// Splits a custom start command on whitespace (no quoting support yet).

@@ -78,6 +78,11 @@ pub fn parse_log_level(line: &str) -> LogLevel {
 
 /// Extracts a state-change signal from a log line, if it contains one.
 pub fn parse_signal(line: &str) -> Option<ConsoleSignal> {
+    // Bedrock's log format has no "]: " marker; its ready line is literal.
+    if line.contains("Server started.") {
+        return Some(ConsoleSignal::ServerReady);
+    }
+
     let message = message_body(line)?;
 
     if is_ready_message(message) {

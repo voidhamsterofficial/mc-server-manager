@@ -35,20 +35,6 @@ impl Loader {
     pub fn is_proxy(self) -> bool {
         matches!(self, Loader::Velocity | Loader::BungeeCord)
     }
-
-    /// Whether Blockparty can download and set this software up itself.
-    pub fn is_installable(self) -> bool {
-        matches!(
-            self,
-            Loader::Vanilla
-                | Loader::Paper
-                | Loader::Purpur
-                | Loader::Folia
-                | Loader::Fabric
-                | Loader::Velocity
-                | Loader::BungeeCord
-        )
-    }
 }
 
 /// Lifecycle state of a server process.

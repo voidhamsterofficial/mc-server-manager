@@ -35,13 +35,6 @@ pub async fn create_server(
     request: CreateServerRequest,
 ) -> AppResult<ServerConfig> {
     request.validate()?;
-    if !request.loader.is_installable() {
-        let message = format!(
-            "{:?} doesn't have an automatic installer yet — it's on the roadmap!",
-            request.loader
-        );
-        return Err(AppError::InvalidInput(message));
-    }
 
     let location_parent = resolve_location_parent(&state, request.location_parent.clone()).await?;
     let slug = servers::folder_slug(&request.name);
@@ -50,6 +43,18 @@ pub async fn create_server(
     let config = servers::new_server_config(&request, server_dir.clone());
     std::fs::create_dir_all(&server_dir)?;
 
+    // Some installers run a Java tool (Forge/NeoForge installers, Quilt's
+    // installer, Spigot's BuildTools) — resolve or download Java up front.
+    let needs_java_tool = matches!(
+        request.loader,
+        Loader::Forge | Loader::NeoForge | Loader::Quilt | Loader::Spigot
+    );
+    let install_java = if needs_java_tool {
+        Some(service::resolve_or_download_java(&app, &config).await?)
+    } else {
+        None
+    };
+
     let report_progress =
         installers::progress_event_reporter(app, config.id.clone(), "download-server-jar");
     let install_result = installers::install(
@@ -57,6 +62,7 @@ pub async fn create_server(
         request.loader,
         &config.mc_version,
         &server_dir,
+        install_java.as_deref(),
         &report_progress,
     )
     .await;
@@ -94,10 +100,14 @@ pub async fn list_loader_versions(
         Loader::Purpur => installers::purpur::list_versions(&state.http).await,
         Loader::Fabric => installers::fabric::list_versions(&state.http).await,
         Loader::BungeeCord => Ok(installers::bungee::list_versions()),
-        unsupported => {
-            let message = format!("{unsupported:?} doesn't have an automatic installer yet");
-            Err(AppError::InvalidInput(message))
+        Loader::Forge | Loader::NeoForge => {
+            installers::forgelike::list_versions(&state.http, loader).await
         }
+        Loader::Quilt => installers::quilt::list_versions(&state.http).await,
+        Loader::Spigot => installers::spigot::list_versions(&state.http).await,
+        Loader::Mohist => installers::mohist::list_versions(&state.http).await,
+        Loader::Arclight => installers::arclight::list_versions(&state.http).await,
+        Loader::Bds => installers::bds::list_versions(&state.http).await,
     }
 }
 

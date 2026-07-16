@@ -11,7 +11,7 @@ use crate::error::{AppError, AppResult};
 use crate::installers;
 use crate::java;
 use crate::process;
-use crate::servers::ServerConfig;
+use crate::servers::{Loader, ServerConfig};
 use crate::state::AppState;
 
 /// How long a restart waits for the old process to exit before giving up.
@@ -32,9 +32,14 @@ pub async fn start_server(app: &AppHandle, server_id: &str) -> AppResult<()> {
     let state = app.state::<AppState>();
     let config = find_config(app, server_id).await?;
 
-    let java_executable = match &config.java_path {
-        Some(explicit_path) => explicit_path.clone(),
-        None => resolve_or_download_java(app, &config).await?,
+    let java_executable = if config.loader == Loader::Bds {
+        // Bedrock is a native binary — no Java involved.
+        PathBuf::new()
+    } else {
+        match &config.java_path {
+            Some(explicit_path) => explicit_path.clone(),
+            None => resolve_or_download_java(app, &config).await?,
+        }
     };
 
     let server_dir = state.server_dir(&config);
@@ -43,7 +48,10 @@ pub async fn start_server(app: &AppHandle, server_id: &str) -> AppResult<()> {
 
 /// Finds a suitable installed Java, or automatically downloads the required
 /// Temurin JRE when none exists.
-async fn resolve_or_download_java(app: &AppHandle, config: &ServerConfig) -> AppResult<PathBuf> {
+pub(crate) async fn resolve_or_download_java(
+    app: &AppHandle,
+    config: &ServerConfig,
+) -> AppResult<PathBuf> {
     let state = app.state::<AppState>();
     let managed_java_dir = state.managed_java_dir();
     let required_major = required_java_major(&state.http, &config.mc_version).await;

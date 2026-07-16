@@ -1,10 +1,16 @@
 //! Server software installers. Each submodule knows how to obtain the server
 //! jar for one loader; shared download plumbing lives here.
 
+pub mod arclight;
+pub mod bds;
 pub mod bungee;
 pub mod fabric;
+pub mod forgelike;
+pub mod mohist;
 pub mod paper;
 pub mod purpur;
+pub mod quilt;
+pub mod spigot;
 pub mod vanilla;
 
 use std::path::Path;
@@ -12,14 +18,23 @@ use std::path::Path;
 use crate::error::{AppError, AppResult};
 use crate::servers::Loader;
 
-/// Installs the chosen server software into `server_dir` as `server.jar`.
+/// Installs the chosen server software into `server_dir`.
+/// `java_executable` is required for installers that run a Java tool
+/// (Forge, NeoForge, Quilt, Spigot's BuildTools).
 pub async fn install(
     client: &reqwest::Client,
     loader: Loader,
     mc_version: &str,
     server_dir: &Path,
+    java_executable: Option<&Path>,
     report_progress: &ProgressCallback,
 ) -> AppResult<()> {
+    let java = |loader_name: &str| {
+        java_executable.ok_or_else(|| {
+            AppError::Process(format!("{loader_name} installation needs a Java runtime"))
+        })
+    };
+
     match loader {
         Loader::Vanilla => vanilla::install(client, mc_version, server_dir, report_progress).await,
         Loader::Paper | Loader::Folia | Loader::Velocity => {
@@ -28,13 +43,78 @@ pub async fn install(
         Loader::Purpur => purpur::install(client, mc_version, server_dir, report_progress).await,
         Loader::Fabric => fabric::install(client, mc_version, server_dir, report_progress).await,
         Loader::BungeeCord => bungee::install(client, server_dir, report_progress).await,
-        unsupported => {
-            let message = format!(
-                "{unsupported:?} doesn't have an automatic installer yet — pick another type, or set it up manually with a custom start command"
-            );
-            Err(AppError::InvalidInput(message))
+        Loader::Forge | Loader::NeoForge => {
+            forgelike::install(
+                client,
+                loader,
+                mc_version,
+                server_dir,
+                java("Forge")?,
+                report_progress,
+            )
+            .await
         }
+        Loader::Quilt => {
+            quilt::install(
+                client,
+                mc_version,
+                server_dir,
+                java("Quilt")?,
+                report_progress,
+            )
+            .await
+        }
+        Loader::Spigot => {
+            spigot::install(
+                client,
+                mc_version,
+                server_dir,
+                java("Spigot")?,
+                report_progress,
+            )
+            .await
+        }
+        Loader::Mohist => mohist::install(client, mc_version, server_dir, report_progress).await,
+        Loader::Arclight => {
+            arclight::install(client, mc_version, server_dir, report_progress).await
+        }
+        Loader::Bds => bds::install(client, mc_version, server_dir, report_progress).await,
     }
+}
+
+/// How many characters of installer output to keep in error messages.
+const TOOL_OUTPUT_TAIL: usize = 600;
+
+/// Runs a Java tool (an installer jar) inside the server folder and waits
+/// for it to finish, surfacing the tail of its output on failure.
+pub(crate) async fn run_java_tool(
+    java_executable: &Path,
+    server_dir: &Path,
+    args: &[&str],
+) -> AppResult<()> {
+    let mut command = tokio::process::Command::new(java_executable);
+    command
+        .args(args)
+        .current_dir(server_dir)
+        .stdin(std::process::Stdio::null());
+    crate::platform::hide_console_window(&mut command);
+
+    let output = command.output().await?;
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let mut tail_start = combined.len().saturating_sub(TOOL_OUTPUT_TAIL);
+    while !combined.is_char_boundary(tail_start) {
+        tail_start += 1;
+    }
+    let message = format!("installer failed:\n{}", &combined[tail_start..]);
+    Err(AppError::Process(message))
 }
 
 use futures_util::StreamExt;
