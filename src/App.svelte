@@ -6,6 +6,7 @@
   import Toasts from "./lib/components/Toasts.svelte";
   import Confetti from "./lib/components/Confetti.svelte";
   import StatusBlob from "./lib/components/StatusBlob.svelte";
+  import GrassBlock from "./lib/components/GrassBlock.svelte";
   import { serversStore } from "./lib/stores/servers.svelte";
   import { statsStore } from "./lib/stores/stats.svelte";
   import { toastsStore } from "./lib/stores/toasts.svelte";
@@ -106,7 +107,7 @@
       onclick={() => (route = { view: "home" })}
       title="All servers"
     >
-      <span class="mark">🎈</span>
+      <span class="mark"><GrassBlock size={22} /></span>
       <span class="name">Blockparty</span>
     </button>
 
@@ -191,13 +192,13 @@
   }
 
   .mark {
-    font-size: 1.4rem;
+    display: inline-flex;
   }
 
   .name {
-    font-size: 1.1rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
+    font-family: var(--font-pixel);
+    font-size: 1.05rem;
+    font-weight: 700;
     background: linear-gradient(90deg, var(--accent), var(--strawberry));
     -webkit-background-clip: text;
     background-clip: text;

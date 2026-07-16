@@ -14,35 +14,31 @@
 </div>
 
 <style>
+  /* XP-bar style: dark chunky track, bright green fill with pixel notches. */
   .track {
-    height: 10px;
-    border-radius: 999px;
-    background: var(--surface-2);
+    height: 14px;
+    border-radius: 5px;
+    background: #1d1926;
+    box-shadow: inset 0 0 0 2px rgba(20, 12, 38, 0.6);
     overflow: hidden;
+    padding: 3px;
   }
 
   .fill {
     height: 100%;
-    border-radius: 999px;
-    background: linear-gradient(90deg, var(--accent), var(--lavender), var(--accent));
-    background-size: 200% 100%;
-    animation: shimmer 1.6s linear infinite;
+    border-radius: 3px;
+    background:
+      repeating-linear-gradient(
+        90deg,
+        transparent 0 6px,
+        rgba(0, 0, 0, 0.16) 6px 8px
+      ),
+      linear-gradient(180deg, #8ef05c 0%, #62c93a 55%, #3f9c22 100%);
     transition: width 0.25s ease;
   }
 
   .fill.indeterminate {
-    animation:
-      shimmer 1.6s linear infinite,
-      slide 1.4s ease-in-out infinite;
-  }
-
-  @keyframes shimmer {
-    from {
-      background-position: 0% 0;
-    }
-    to {
-      background-position: 200% 0;
-    }
+    animation: slide 1.4s ease-in-out infinite;
   }
 
   @keyframes slide {

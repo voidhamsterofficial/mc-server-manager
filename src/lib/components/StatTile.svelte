@@ -47,11 +47,11 @@
   }
 
   .value {
-    font-size: 1.5rem;
-    font-weight: 800;
-    line-height: 1.25;
+    font-family: var(--font-pixel);
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.3;
     color: var(--text);
-    font-variant-numeric: tabular-nums;
   }
 
   .sub {

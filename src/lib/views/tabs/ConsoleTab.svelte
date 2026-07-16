@@ -81,7 +81,7 @@
 
   .command-row input {
     flex: 1;
-    font-family: var(--font-mono);
+    font-family: var(--font-pixel);
     font-size: 0.9rem;
     color: var(--text);
     background: var(--surface);

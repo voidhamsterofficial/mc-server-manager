@@ -72,6 +72,15 @@ per-user app-data directory, not in the repo.
   (in `src-tauri/`) and `npm run check` + `npm run build`.
 - Coding standards live in [AGENTS.md](AGENTS.md).
 
+## 🙏 Credits
+
+- [Monocraft](https://github.com/IdreesInc/Monocraft) by Idrees Hassan — the
+  Minecraft-inspired pixel font used for headings and the console (SIL OFL 1.1,
+  contains no Mojang assets; license bundled in `src/assets/fonts/`).
+- Player avatars rendered via [mc-heads.net](https://mc-heads.net).
+- Blockparty contains no Minecraft game assets and is not affiliated with,
+  endorsed by, or supported by Mojang or Microsoft.
+
 ## 📄 License & EULA
 
 Blockparty downloads the official Minecraft server software from Mojang. You

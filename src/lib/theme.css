@@ -1,10 +1,27 @@
-/* Design tokens + base styles for Blockparty's cute, bubbly look. */
+/* Design tokens + base styles for Blockparty's cute, blocky look. */
+
+/* Monocraft by Idrees Hassan — Minecraft-inspired, SIL OFL 1.1, contains no
+   Mojang assets. License: src/assets/fonts/Monocraft-LICENSE.txt */
+@font-face {
+  font-family: "Monocraft";
+  src: url("../assets/fonts/Monocraft.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Monocraft";
+  src: url("../assets/fonts/Monocraft-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-display: swap;
+}
 
 :root {
   --font-body:
     "Segoe UI Variable Display", ui-rounded, "SF Pro Rounded", "Segoe UI",
     system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  --font-pixel: "Monocraft", ui-monospace, monospace;
 
   --bg: #faf7ff;
   --bg-gradient: radial-gradient(1200px 600px at 80% -10%, #f3e8ff 0%, transparent 60%),
@@ -97,6 +114,14 @@ body {
 
 #app {
   height: 100%;
+}
+
+/* Headings wear the blocky pixel face; body text stays rounded and soft. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-pixel);
+  letter-spacing: 0.01em;
 }
 
 input,

@@ -243,7 +243,8 @@
   }
 
   .player-list img {
-    border-radius: 8px;
+    border-radius: 4px;
+    image-rendering: pixelated;
   }
 
   .player-name {
@@ -336,8 +337,9 @@
   }
 
   .history-list img {
-    border-radius: 6px;
+    border-radius: 4px;
     flex-shrink: 0;
+    image-rendering: pixelated;
   }
 
   .entry-name {

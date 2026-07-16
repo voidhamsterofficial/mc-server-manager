@@ -59,8 +59,8 @@
   .line {
     padding: 1px 0.9rem;
     min-height: 1.4em;
-    font-family: var(--font-mono);
-    font-size: 12.5px;
+    font-family: var(--font-pixel);
+    font-size: 13px;
     line-height: 1.45;
     white-space: pre-wrap;
     overflow-wrap: break-word;
