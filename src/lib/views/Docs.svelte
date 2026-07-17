@@ -88,6 +88,28 @@
       ],
     },
     {
+      id: "plugins",
+      emoji: "🧩",
+      title: "Plugins",
+      paragraphs: [
+        [
+          {
+            text: "Software that takes plugins gets a Plugins tab: the Paper family (Paper, Purpur, Spigot, Folia), the hybrids (Mohist, Arclight), and the Velocity/BungeeCord proxies. Mod loaders like Fabric and Forge use mods instead, so the tab doesn't appear for them.",
+          },
+        ],
+        [
+          {
+            text: "Browse and install straight from Modrinth — results are filtered to your server's software and Minecraft version, and every download is verified against its published checksum. Installed plugins can be disabled without deleting them (the jar is simply renamed) or removed for good.",
+          },
+        ],
+        [
+          { text: "Plugins load at startup, so restart the server after adding or disabling one. Their config files appear in the " },
+          { text: "Files tab", link: { kind: "topic", topicId: "files" } },
+          { text: " under plugins/ once the server has run at least once." },
+        ],
+      ],
+    },
+    {
       id: "players",
       emoji: "🧑‍🤝‍🧑",
       title: "Players & moderation",
@@ -99,7 +121,12 @@
         ],
         [
           {
-            text: "Player history remembers everyone who ever joined: playtime, join and kick counts, and live ban status from the server's ban list. Click any player — online or in history — to open their page: total playtime, message count, first/last seen, everything they've said in chat, and Ban/Pardon/Op/Kick buttons.",
+            text: "Player history remembers everyone who ever joined: playtime, join and kick counts, and live ban status from the server's ban list. Click any player — online or in history — to open their page: total playtime, message count, current game mode, first/last seen, everything they've said in chat, and Ban/Pardon/Op/Kick buttons.",
+          },
+        ],
+        [
+          {
+            text: "Kicking or banning asks for an optional reason first — leave it blank to record none, or cancel to call the whole thing off. A banned player's page shows why they were banned, read from the server's own ban list, so bans made in-game show up there too.",
           },
         ],
       ],
@@ -114,6 +141,11 @@
             text: "The Console streams live output with Minecraft and ANSI colors, word wrap, and a 5000-line buffer. Type any command and press Send, or hit the ⚡ button for quick admin commands (list, save, time, weather, broadcast, gamemode, and more).",
           },
         ],
+        [
+          {
+            text: "Right-click the console to copy — either just your selection, or the whole buffer for pasting into a bug report.",
+          },
+        ],
       ],
     },
     {
@@ -124,6 +156,11 @@
         [
           {
             text: "The Files tab is a browser scoped to the server's own folder — navigate the tree, open any text file (server.properties, ops.json, plugin configs, logs) in the built-in editor, save, or delete. It can't reach outside the server directory.",
+          },
+        ],
+        [
+          {
+            text: "Right-click any file or folder for its actions: open or edit it, copy its name, or delete it.",
           },
         ],
         [
