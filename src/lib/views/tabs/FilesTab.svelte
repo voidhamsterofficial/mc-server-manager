@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fade } from "svelte/transition";
   import { api, type DirEntry, type ServerConfig } from "../../api";
   import { toastsStore } from "../../stores/toasts.svelte";
   import { contextMenuStore, type MenuEntry } from "../../stores/contextMenu.svelte";
@@ -162,13 +163,17 @@
       {/each}
     </nav>
 
-    {#if loading}
+    {#if loading && entries.length === 0}
       <p class="hint">Loading…</p>
     {:else if entries.length === 0}
       <p class="hint">This folder is empty.</p>
     {:else}
-      <ul class="entries">
-        {#each entries as entry (entry.relPath)}
+      <!-- Keyed on the path so each folder's rows fade in as a smooth swap;
+           entries persist through the (fast, local) load so the list never
+           collapses to a "Loading…" line and snaps back. -->
+      {#key currentPath}
+        <ul class="entries" class:stale={loading} in:fade={{ duration: 120 }}>
+          {#each entries as entry (entry.relPath)}
           <li>
             <button
               class="entry"
@@ -187,7 +192,8 @@
             {/if}
           </li>
         {/each}
-      </ul>
+        </ul>
+      {/key}
     {/if}
   {/if}
 </div>
@@ -235,6 +241,14 @@
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
+    transition: opacity var(--duration-fast) var(--ease-out);
+  }
+
+  /* While the next folder loads, the current rows stay put and just dim,
+     so navigation never jumps — no collapse to a "Loading…" line. */
+  .entries.stale {
+    opacity: 0.5;
+    pointer-events: none;
   }
 
   .entries li {
@@ -299,6 +313,8 @@
     white-space: nowrap;
   }
 
+  /* The editor is always terminal-dark, in both app themes, so the text
+     colour must stay light — themed --text would go near-black-on-black. */
   .editor {
     flex: 1;
     min-height: 0;
@@ -306,7 +322,7 @@
     font-family: var(--font-mono);
     font-size: 0.85rem;
     line-height: 1.5;
-    color: var(--text);
+    color: #d8d8dc;
     background: #1a1b1e;
     border: 1px solid var(--border);
     border-radius: var(--radius-md);

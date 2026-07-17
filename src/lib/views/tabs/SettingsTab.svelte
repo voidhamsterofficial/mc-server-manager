@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
   import {
     api,
@@ -72,16 +73,28 @@
     ),
   );
 
+  // Re-seed the form only when the selected server actually changes — not on
+  // every serversStore.refresh(), which hands us a fresh object with the same
+  // id after a save. Re-seeding on each refresh would reset the fields, reload
+  // properties, and jerk the scroll position out from under the user.
+  let seededForId: string | null = null;
   $effect(() => {
-    editedName = server.name;
-    editedMemoryMb = server.memoryMb;
-    editedBackupsDir = server.backupsDir;
-    editedJavaPath = server.javaPath ?? "";
-    editedJavaArgs = server.javaArgs ?? "";
-    editedStartCommand = server.startCommand ?? "";
-    editedRetention = server.backupRetention === null ? "" : String(server.backupRetention);
-    loadProperties(server.id);
-    loadIcon(server.id);
+    const id = server.id;
+    if (id === seededForId) {
+      return;
+    }
+    seededForId = id;
+    untrack(() => {
+      editedName = server.name;
+      editedMemoryMb = server.memoryMb;
+      editedBackupsDir = server.backupsDir;
+      editedJavaPath = server.javaPath ?? "";
+      editedJavaArgs = server.javaArgs ?? "";
+      editedStartCommand = server.startCommand ?? "";
+      editedRetention = server.backupRetention === null ? "" : String(server.backupRetention);
+      loadProperties(id);
+      loadIcon(id);
+    });
   });
 
   $effect(() => {
@@ -137,10 +150,14 @@
   }
 
   async function loadProperties(serverId: string) {
-    loadingProperties = true;
-    edited = {};
+    // Only show the "Loading…" placeholder on the very first load; on a reload
+    // (e.g. after saving) keep the current rows in place so the list never
+    // collapses to one line and yanks the scroll position.
+    loadingProperties = properties.length === 0;
     try {
-      properties = await api.getServerProperties(serverId);
+      const loaded = await api.getServerProperties(serverId);
+      properties = loaded;
+      edited = {};
     } catch (error) {
       toastsStore.error(String(error));
     } finally {

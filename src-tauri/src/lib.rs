@@ -7,6 +7,7 @@ mod files;
 mod installers;
 mod java;
 mod platform;
+mod playerdata;
 mod plugins;
 mod process;
 mod properties;

@@ -176,6 +176,14 @@ textarea {
   user-select: text;
 }
 
+/* WebKit's default placeholder is a fixed light grey that all but vanishes on
+   our input surface — and it doesn't follow the theme. Key it off --muted so
+   it stays legible in both light and dark. */
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
 /* Chunky, rounded, pastel scrollbars — the default ones ruin the vibe. */
 ::-webkit-scrollbar {
   width: 12px;

@@ -498,7 +498,7 @@ pub async fn get_player_detail(
     let banned = ban.is_some();
     let ban_reason = ban.and_then(|record| record.reason.clone());
 
-    let detail = state
+    let mut detail = state
         .rosters
         .detail(
             &server_id,
@@ -508,6 +508,17 @@ pub async fn get_player_detail(
             ban_reason,
         )
         .await;
+
+    // The console only reports a game mode when someone runs a logged
+    // `/gamemode` command, so most players have none recorded. Fall back to the
+    // ground truth in the world save (their playerdata, then the world default).
+    if let Some(detail) = detail.as_mut() {
+        if detail.last_game_mode.is_none() {
+            detail.last_game_mode =
+                crate::playerdata::game_mode(&state.server_dir(&config), &player_name);
+        }
+    }
+
     Ok(detail)
 }
 
