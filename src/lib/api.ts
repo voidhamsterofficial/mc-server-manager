@@ -128,6 +128,7 @@ export interface PlayerDetail {
   kickCount: number;
   chatCount: number;
   totalPlaySeconds: number;
+  lastGameMode: string | null;
   recentChat: ChatEntry[];
 }
 

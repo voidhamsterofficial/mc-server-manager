@@ -625,6 +625,13 @@ async fn ingest_line(
                 .record_chat(server_id, &player, &message)
                 .await;
         }
+        Some(ConsoleSignal::GameModeChanged { player, mode }) => {
+            let state = app.state::<crate::state::AppState>();
+            state
+                .rosters
+                .record_game_mode(server_id, &player, &mode)
+                .await;
+        }
         None => {}
     }
 

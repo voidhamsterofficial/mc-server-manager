@@ -46,6 +46,11 @@ pub enum ConsoleSignal {
         player: String,
         message: String,
     },
+    /// "Set <name>'s game mode to <Mode> Mode".
+    GameModeChanged {
+        player: String,
+        mode: String,
+    },
 }
 
 /// Parses one raw output line into its display form and any state-change
@@ -112,6 +117,9 @@ pub fn parse_signal(line: &str) -> Option<ConsoleSignal> {
     if let Some(player_name) = kicked_player_name(message) {
         return Some(ConsoleSignal::PlayerKicked(player_name));
     }
+    if let Some((player, mode)) = game_mode_change(message) {
+        return Some(ConsoleSignal::GameModeChanged { player, mode });
+    }
     if let Some((player, chat)) = chat_message(message) {
         return Some(ConsoleSignal::ChatMessage {
             player,
@@ -120,6 +128,24 @@ pub fn parse_signal(line: &str) -> Option<ConsoleSignal> {
     }
 
     None
+}
+
+/// Matches `Set <name>'s game mode to <Mode> Mode` and returns the player
+/// and the short mode word (Survival, Creative, Adventure, Spectator).
+fn game_mode_change(message: &str) -> Option<(String, String)> {
+    let after_prefix = message.strip_prefix("Set ")?;
+    let (name, rest) = after_prefix.split_once("'s game mode to ")?;
+
+    let is_single_token = !name.is_empty() && !name.contains(' ') && !name.contains('<');
+    if !is_single_token {
+        return None;
+    }
+
+    let mode = rest.trim_end_matches(" Mode").trim().to_string();
+    if mode.is_empty() {
+        return None;
+    }
+    Some((name.to_string(), mode))
 }
 
 /// Matches chat lines of the shape `<Name> message`.
@@ -514,6 +540,18 @@ mod tests {
             Some(ConsoleSignal::ChatMessage {
                 player: "Alex".to_string(),
                 message: "somebody joined the game".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn detects_game_mode_changes() {
+        let line = "[12:00:00] [Server thread/INFO]: Set Alex's game mode to Creative Mode";
+        assert_eq!(
+            parse_signal(line),
+            Some(ConsoleSignal::GameModeChanged {
+                player: "Alex".to_string(),
+                mode: "Creative".to_string(),
             })
         );
     }

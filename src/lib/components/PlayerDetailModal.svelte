@@ -78,6 +78,7 @@
       <div class="stat"><span>Joins</span><b>{detail.joinCount}</b></div>
       <div class="stat"><span>Kicks</span><b>{detail.kickCount}</b></div>
       <div class="stat"><span>Messages</span><b>{detail.chatCount}</b></div>
+      <div class="stat"><span>Game mode</span><b>{detail.lastGameMode ?? "unknown"}</b></div>
       <div class="stat">
         <span>First seen</span><b>{detail.firstJoinedUnix ? formatDateTime(detail.firstJoinedUnix) : "—"}</b>
       </div>

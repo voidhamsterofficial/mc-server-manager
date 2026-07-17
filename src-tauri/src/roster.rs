@@ -35,6 +35,9 @@ pub struct PlayerRecord {
     pub chat_count: u32,
     #[serde(default)]
     pub chat_log: Vec<ChatEntry>,
+    /// Last game mode we saw this player set to, if ever.
+    #[serde(default)]
+    pub last_game_mode: Option<String>,
 }
 
 /// Full detail for one player, for the player page.
@@ -50,6 +53,8 @@ pub struct PlayerDetail {
     pub kick_count: u32,
     pub chat_count: u32,
     pub total_play_seconds: u64,
+    /// Last game mode we saw this player set to, if ever.
+    pub last_game_mode: Option<String>,
     /// Newest chat lines first.
     pub recent_chat: Vec<ChatEntry>,
 }
@@ -128,6 +133,16 @@ impl RosterStore {
         self.save(server_id, roster);
     }
 
+    pub async fn record_game_mode(&self, server_id: &str, player_name: &str, mode: &str) {
+        let mut rosters = self.by_server.lock().await;
+        let roster = loaded_roster(&mut rosters, &self.rosters_dir, server_id);
+
+        let record = roster.players.entry(player_name.to_string()).or_default();
+        record.last_game_mode = Some(mode.to_string());
+
+        self.save(server_id, roster);
+    }
+
     pub async fn record_chat(&self, server_id: &str, player_name: &str, message: &str) {
         let now = current_unix_time();
         let mut rosters = self.by_server.lock().await;
@@ -179,6 +194,7 @@ impl RosterStore {
             kick_count: record.kick_count,
             chat_count: record.chat_count,
             total_play_seconds: record.total_play_seconds + live_session_seconds,
+            last_game_mode: record.last_game_mode.clone(),
             recent_chat,
         })
     }
