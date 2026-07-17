@@ -1,6 +1,6 @@
 [package]
 name = "mc-server-manager"
-version = "1.3.0"
+version = "1.4.0"
 description = "Blockparty — a cute, fast, cross-platform Minecraft server manager"
 authors = ["Sam"]
 edition = "2021"
@@ -37,6 +37,7 @@ chrono = "0.4.45"
 walkdir = "2.5.0"
 flate2 = "1.1.9"
 fastnbt = "2"
+igd-next = { version = "0.16", features = ["aio_tokio"] }
 tar = "0.4.46"
 sha2 = "0.11.0"
 image = "0.25.10"

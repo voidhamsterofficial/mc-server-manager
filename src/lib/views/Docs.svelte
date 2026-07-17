@@ -186,6 +186,47 @@
       ],
     },
     {
+      id: "internet",
+      emoji: "🌍",
+      title: "Playing over the internet",
+      paragraphs: [
+        [
+          {
+            text: "Out of the box a server is only reachable on your own network — that's the LAN address on the ",
+          },
+          { text: "Dashboard", link: { kind: "view", view: "home" } },
+          {
+            text: ". For friends elsewhere to join, the server's port has to be reachable from the internet. This is called port forwarding.",
+          },
+        ],
+        [
+          {
+            text: "The easy way: on a server's Dashboard, click \"Open to internet\". Blockparty asks your router to forward the port for you over UPnP and, when it works, shows a public address to share. Click \"Close\" to remove it again when you're done — an open port stays reachable by anyone until you do.",
+          },
+        ],
+        [
+          {
+            text: "If it doesn't work, there are two usual reasons. First, UPnP may be switched off on your router. Open your router's admin page (usually http://192.168.0.1 or http://192.168.1.1 — the address is often printed on the router), sign in, find the UPnP setting (often under Advanced, NAT, or Firewall), turn it on, and try again.",
+          },
+        ],
+        [
+          {
+            text: "Second — and this one can't be fixed from Blockparty — some internet providers put you behind shared \"CGNAT\" addressing, so no port forwarding can reach you. Blockparty tells you when it detects this. Your options are to ask your ISP for a public (static) IP, or use a tunnelling service such as playit.gg that works without forwarding.",
+          },
+        ],
+        [
+          {
+            text: "To forward the port manually instead of UPnP: sign into your router, find \"Port Forwarding\" (sometimes under NAT or Virtual Server), and add a rule that sends the server's port to this PC's LAN IP (the one shown on the Dashboard). Use the server's port — 25565 for Java, 19132 for Bedrock — with protocol TCP for Java or UDP for Bedrock. Giving this PC a fixed (reserved) LAN IP in your router's DHCP settings keeps the rule from breaking after a reboot.",
+          },
+        ],
+        [
+          {
+            text: "Whichever way you open a port, only do it for software you trust, keep the server updated, and turn on a whitelist for private servers — anyone on the internet can reach an open port.",
+          },
+        ],
+      ],
+    },
+    {
       id: "backups",
       emoji: "🎁",
       title: "Backups & restores",

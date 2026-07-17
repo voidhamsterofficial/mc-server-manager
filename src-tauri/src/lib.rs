@@ -9,6 +9,7 @@ mod java;
 mod platform;
 mod playerdata;
 mod plugins;
+mod portforward;
 mod process;
 mod properties;
 mod roster;
@@ -50,6 +51,8 @@ pub fn run() {
             commands::get_player_roster,
             commands::get_player_detail,
             commands::get_server_address,
+            commands::open_port_forward,
+            commands::close_port_forward,
             commands::detect_java,
             commands::kill_all_java,
             commands::get_settings,

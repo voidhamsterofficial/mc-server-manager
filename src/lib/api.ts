@@ -155,6 +155,17 @@ export interface ServerAddress {
   port: string;
 }
 
+export interface ForwardResult {
+  /** Whether a mapping was successfully added on the router. */
+  success: boolean;
+  /** The address to share with friends, when there is one. */
+  publicAddress: string | null;
+  /** Forwarded, but the ISP's CGNAT means friends likely still can't connect. */
+  cgnat: boolean;
+  /** A human-friendly explanation to surface in the UI. */
+  message: string;
+}
+
 export interface InstalledPlugin {
   fileName: string;
   displayName: string;
@@ -220,6 +231,9 @@ export const api = {
     invoke<PlayerDetail | null>("get_player_detail", { serverId, playerName }),
   getServerAddress: (serverId: string) =>
     invoke<ServerAddress>("get_server_address", { serverId }),
+  openPortForward: (serverId: string) =>
+    invoke<ForwardResult>("open_port_forward", { serverId }),
+  closePortForward: (serverId: string) => invoke<void>("close_port_forward", { serverId }),
   updateServer: (serverId: string, request: UpdateServerRequest) =>
     invoke<ServerConfig>("update_server", { serverId, request }),
   setServerIcon: (serverId: string, sourcePath: string) =>

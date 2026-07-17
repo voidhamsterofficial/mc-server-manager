@@ -14,6 +14,7 @@ use crate::files;
 use crate::installers::{self, vanilla};
 use crate::java::{self, JavaInstall};
 use crate::plugins;
+use crate::portforward;
 use crate::process;
 use crate::properties::{self, Property};
 use crate::roster::{self, RosterEntry};
@@ -447,18 +448,26 @@ pub async fn get_server_address(
     let config = service::find_config(&app, &server_id).await?;
     let server_dir = state.server_dir(&config);
 
-    let properties = properties::read(&server_dir)?;
-    let port = properties
-        .iter()
-        .find(|property| property.key == "server-port")
-        .map(|property| property.value.clone())
-        .unwrap_or_else(|| "25565".to_string());
-
     let address = ServerAddress {
         lan_ip: local_lan_ip(),
-        port,
+        port: configured_port(&server_dir),
     };
     Ok(address)
+}
+
+/// The server's configured port from `server.properties`, or the vanilla
+/// default when the file doesn't exist yet.
+fn configured_port(server_dir: &std::path::Path) -> String {
+    properties::read(server_dir)
+        .ok()
+        .and_then(|props| {
+            props
+                .into_iter()
+                .find(|property| property.key == "server-port")
+        })
+        .map(|property| property.value)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "25565".to_string())
 }
 
 /// This machine's LAN IP, found by asking the OS which local address it
@@ -475,6 +484,124 @@ fn local_lan_ip() -> String {
         Ok(address) => address.ip().to_string(),
         Err(_) => fallback,
     }
+}
+
+/// UPnP protocol a server needs: Bedrock is UDP, every Java flavour is TCP.
+fn forward_protocol(loader: Loader) -> portforward::Protocol {
+    if loader == Loader::Bds {
+        portforward::Protocol::Udp
+    } else {
+        portforward::Protocol::Tcp
+    }
+}
+
+/// The result of trying to open a server's port to the internet over UPnP.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ForwardResult {
+    /// Whether a mapping was successfully added on the router.
+    pub success: bool,
+    /// The address to share with friends (public IP + port), when there is one.
+    pub public_address: Option<String>,
+    /// The router forwarded the port, but the ISP's shared (CGNAT) addressing
+    /// means friends still likely can't connect.
+    pub cgnat: bool,
+    /// A human-friendly explanation for the UI.
+    pub message: String,
+}
+
+impl ForwardResult {
+    fn failure(message: impl Into<String>) -> Self {
+        ForwardResult {
+            success: false,
+            public_address: None,
+            cgnat: false,
+            message: message.into(),
+        }
+    }
+}
+
+/// Opens (UPnP-forwards) a server's port so players can connect over the
+/// internet. Expected failures — no UPnP, or CGNAT — come back as a descriptive
+/// [`ForwardResult`] rather than an error, so the UI can guide the user.
+#[tauri::command]
+pub async fn open_port_forward(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+) -> AppResult<ForwardResult> {
+    let config = service::find_config(&app, &server_id).await?;
+    let server_dir = state.server_dir(&config);
+    let port_text = configured_port(&server_dir);
+
+    let port: u16 = match port_text.parse() {
+        Ok(port) => port,
+        Err(_) => {
+            return Ok(ForwardResult::failure(format!(
+                "The server port \"{port_text}\" isn't a valid number."
+            )));
+        }
+    };
+
+    let lan_ip = match local_lan_ip().parse() {
+        Ok(std::net::IpAddr::V4(ip)) => ip,
+        _ => {
+            return Ok(ForwardResult::failure(
+                "Couldn't determine this PC's LAN IP address.",
+            ));
+        }
+    };
+
+    match portforward::open(forward_protocol(config.loader), port, lan_ip).await {
+        Ok(wan_ip) => {
+            let public = portforward::public_ip().await;
+            let cgnat = portforward::is_behind_carrier_nat(wan_ip)
+                || public
+                    .as_deref()
+                    .map(|ip| ip != wan_ip.to_string())
+                    .unwrap_or(false);
+            let host = public.unwrap_or_else(|| wan_ip.to_string());
+            let message = if cgnat {
+                "Your router forwarded the port, but your ISP uses shared (CGNAT) \
+                 addressing, so friends likely still can't connect. See the \
+                 \"Playing over the internet\" docs for options."
+                    .to_string()
+            } else {
+                "Port forwarded! Share the address below with your friends.".to_string()
+            };
+            Ok(ForwardResult {
+                success: true,
+                public_address: Some(format!("{host}:{port}")),
+                cgnat,
+                message,
+            })
+        }
+        Err(portforward::PortForwardError::NoGateway) => Ok(ForwardResult::failure(
+            "No UPnP router found. UPnP may be turned off on your router — turn it on \
+             and try again, or forward the port manually. See the \"Playing over the \
+             internet\" docs.",
+        )),
+        Err(error) => Ok(ForwardResult::failure(format!(
+            "Couldn't set up forwarding automatically ({error}). You can forward the \
+             port manually — see the \"Playing over the internet\" docs."
+        ))),
+    }
+}
+
+/// Removes a server's UPnP port mapping. Best-effort: a missing mapping or an
+/// unreachable router is not treated as an error.
+#[tauri::command]
+pub async fn close_port_forward(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+) -> AppResult<()> {
+    let config = service::find_config(&app, &server_id).await?;
+    let server_dir = state.server_dir(&config);
+    if let Ok(port) = configured_port(&server_dir).parse::<u16>() {
+        let _ = portforward::close(forward_protocol(config.loader), port).await;
+    }
+    Ok(())
 }
 
 /// Full detail for one player, for the player page.
