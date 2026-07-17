@@ -41,7 +41,7 @@
       <header>
         <h2>{title}</h2>
         {#if onclose}
-          <button class="close" onclick={onclose} aria-label="Close">✕</button>
+          <button class="close" onclick={onclose} aria-label="Close">Close</button>
         {/if}
       </header>
       {@render children()}
@@ -86,21 +86,30 @@
     font-size: 1.25rem;
   }
 
+  /* Blocky "Close" button — same bevel language as the shared Button. */
   .close {
     border: none;
-    background: var(--surface-2);
-    color: var(--muted);
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.55em 1em;
+    border-radius: 8px;
     cursor: pointer;
-    transition:
-      background-color var(--duration-fast) var(--ease-out),
-      color var(--duration-fast) var(--ease-out);
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, 0.25),
+      inset 0 -3px 0 rgba(0, 0, 0, 0.18),
+      0 0 0 2px rgba(20, 12, 38, 0.25);
+    transition: background-color var(--duration-fast) var(--ease-out);
   }
 
   .close:hover {
-    background: var(--border);
-    color: var(--text);
+    background: color-mix(in srgb, var(--accent-soft) 82%, var(--accent));
+  }
+
+  .close:active {
+    filter: brightness(0.94);
   }
 </style>

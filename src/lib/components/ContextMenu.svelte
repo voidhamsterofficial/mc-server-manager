@@ -31,7 +31,8 @@
   <div
     class="menu"
     style:left="{contextMenuStore.x}px"
-    style:top="{contextMenuStore.y}px"
+    style:top={contextMenuStore.bottom === null ? `${contextMenuStore.y}px` : null}
+    style:bottom={contextMenuStore.bottom === null ? null : `${contextMenuStore.bottom}px`}
     transition:fade={{ duration: 80 }}
     role="menu"
   >

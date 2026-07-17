@@ -4,6 +4,8 @@
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
   import { formatDateTime, formatUptime } from "../../format";
+  import { commandArg, commandText } from "../../commands";
+  import { reasonPromptStore } from "../../stores/reasonPrompt.svelte";
   import Button from "../../components/Button.svelte";
   import PlayerDetailModal from "../../components/PlayerDetailModal.svelte";
 
@@ -24,14 +26,6 @@
   const isBedrock = $derived(server.loader === "bds");
   // Bedrock calls it the allowlist; vanilla BDS has no ban/pardon commands.
   const whitelistCommand = $derived(isBedrock ? "allowlist" : "whitelist");
-
-  /** Bedrock gamertags may contain spaces and need quoting in commands. */
-  function commandName(playerName: string): string {
-    if (isBedrock && playerName.includes(" ")) {
-      return `"${playerName}"`;
-    }
-    return playerName;
-  }
 
   $effect(() => {
     // Reload the history when opened, and keep it fresh as players come
@@ -54,9 +48,19 @@
     try {
       await api.sendServerCommand(server.id, command);
       toastsStore.success(successMessage);
+      // Ban/pardon/kick change the roster's live state; the server writes
+      // banned-players.json a moment later, so refresh shortly after.
+      reloadRosterSoon();
     } catch (error) {
       toastsStore.error(String(error));
     }
+  }
+
+  function reloadRosterSoon() {
+    if (!historyOpen) {
+      return;
+    }
+    setTimeout(() => loadRoster(), 700);
   }
 
   function manualTarget(): string | null {
@@ -73,7 +77,44 @@
     if (name === null) {
       return;
     }
-    sendPlayerCommand(`${commandPrefix} ${commandName(name)}`, `${label} ${name} ✨`);
+    sendPlayerCommand(`${commandPrefix} ${commandArg(name)}`, `${label} ${name} ✨`);
+  }
+
+  /** Kick/ban with an optional reason gathered from a small dialog. Cancelling
+   *  the dialog aborts; confirming with an empty field records no reason. */
+  async function moderateWithReason(
+    verb: "kick" | "ban",
+    name: string,
+    actionLabel: string,
+    successMessage: string,
+  ) {
+    const reason = await reasonPromptStore.ask({
+      title: `${actionLabel} ${name}`,
+      actionLabel,
+      variant: "danger",
+    });
+    if (reason === null) {
+      return;
+    }
+    const base = `${verb} ${commandArg(name)}`;
+    const command = reason === "" ? base : `${base} ${commandText(reason)}`;
+    await sendPlayerCommand(command, successMessage);
+  }
+
+  function kickPlayer(name: string) {
+    return moderateWithReason("kick", name, "👢 Kick", `Kicked ${name} 👢`);
+  }
+
+  function banPlayer(name: string) {
+    return moderateWithReason("ban", name, "🔨 Ban", `Banned ${name} 🔨`);
+  }
+
+  function runManualBan() {
+    const name = manualTarget();
+    if (name === null) {
+      return;
+    }
+    return banPlayer(name);
   }
 </script>
 
@@ -95,7 +136,7 @@
         </Button>
         {#if !isBedrock}
           <Button variant="ghost" onclick={() => runManual("pardon", "Pardoned")}>🕊️ Pardon</Button>
-          <Button variant="danger" onclick={() => runManual("ban", "Banned")}>🔨 Ban</Button>
+          <Button variant="danger" onclick={runManualBan}>🔨 Ban</Button>
         {/if}
       </div>
     </div>
@@ -113,7 +154,7 @@
       {#each players as player (player)}
         <li in:fade={{ duration: 120 }}>
           <img
-            src="https://mc-heads.net/avatar/{player}/40"
+            src="https://mc-heads.net/avatar/{encodeURIComponent(player)}/40"
             alt=""
             width="40"
             height="40"
@@ -126,31 +167,20 @@
           <span class="player-actions">
             <Button
               variant="soft"
-              onclick={() => sendPlayerCommand(`op ${commandName(player)}`, `Opped ${player} 👑`)}
+              onclick={() => sendPlayerCommand(`op ${commandArg(player)}`, `Opped ${player} 👑`)}
             >
               👑 Op
             </Button>
             <Button
               variant="ghost"
               onclick={() =>
-                sendPlayerCommand(`deop ${commandName(player)}`, `De-opped ${player}`)}
+                sendPlayerCommand(`deop ${commandArg(player)}`, `De-opped ${player}`)}
             >
               De-op
             </Button>
-            <Button
-              variant="danger"
-              onclick={() =>
-                sendPlayerCommand(`kick ${commandName(player)}`, `Kicked ${player} 👢`)}
-            >
-              👢 Kick
-            </Button>
+            <Button variant="danger" onclick={() => kickPlayer(player)}>👢 Kick</Button>
             {#if !isBedrock}
-              <Button
-                variant="danger"
-                onclick={() => sendPlayerCommand(`ban ${player}`, `Banned ${player} 🔨`)}
-              >
-                🔨 Ban
-              </Button>
+              <Button variant="danger" onclick={() => banPlayer(player)}>🔨 Ban</Button>
             {/if}
           </span>
         </li>
@@ -178,7 +208,7 @@
               <li>
                 <button class="entry-main" onclick={() => (inspectedPlayer = entry.name)}>
                   <img
-                    src="https://mc-heads.net/avatar/{entry.name}/28"
+                    src="https://mc-heads.net/avatar/{encodeURIComponent(entry.name)}/28"
                     alt=""
                     width="28"
                     height="28"
@@ -207,7 +237,7 @@
                     disabled={!canCommand}
                     title={canCommand ? "" : "Start the server to pardon"}
                     onclick={() =>
-                      sendPlayerCommand(`pardon ${entry.name}`, `Pardoned ${entry.name} 🕊️`)}
+                      sendPlayerCommand(`pardon ${commandArg(entry.name)}`, `Pardoned ${entry.name} 🕊️`)}
                   >
                     🕊️ Pardon
                   </Button>

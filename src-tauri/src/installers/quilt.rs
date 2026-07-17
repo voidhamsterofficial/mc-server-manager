@@ -7,7 +7,7 @@ use serde::Deserialize;
 
 use crate::error::{AppError, AppResult};
 use crate::installers::vanilla::McVersion;
-use crate::installers::{download_file, run_java_tool, ExpectedChecksum, ProgressCallback};
+use crate::installers::{download_file, fetch_maven_checksum, run_java_tool, ProgressCallback};
 
 const QUILT_META_BASE: &str = "https://meta.quiltmc.org/v3/versions";
 
@@ -63,12 +63,15 @@ pub async fn install(
         .first()
         .ok_or_else(|| AppError::Process("no Quilt installer available".to_string()))?;
 
+    // The installer jar is executed below, so verify it against its Maven
+    // checksum first.
+    let checksum = fetch_maven_checksum(client, &newest_installer.url).await?;
     let installer_path = server_dir.join(INSTALLER_FILE);
     download_file(
         client,
         &newest_installer.url,
         &installer_path,
-        ExpectedChecksum::None,
+        checksum.as_expected(),
         report_progress,
     )
     .await?;

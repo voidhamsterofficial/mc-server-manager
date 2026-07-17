@@ -10,7 +10,7 @@ use std::time::Duration;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
-use tokio::process::{Child, ChildStdin, Command};
+use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
 use crate::console::{self, ConsoleLine, ConsoleSignal, ConsoleSpan, LogLevel};
@@ -93,37 +93,52 @@ pub async fn start(
     server_dir: &Path,
     java_executable: &Path,
 ) -> AppResult<()> {
-    let mut running_guard = running.lock().await;
-    if running_guard.contains_key(&config.id) {
-        return Err(AppError::ServerAlreadyRunning);
-    }
-
-    reclaim_orphaned_server(app, &config.id, server_dir).await;
-
-    let mut child = spawn_java_process(config, server_dir, java_executable)?;
-    platform::tie_child_to_app_lifetime(&child);
-    write_pid_file(server_dir, child.id());
-    let stdin = take_pipe(child.stdin.take())?;
-    let stdout = take_pipe(child.stdout.take())?;
-    let stderr = take_pipe(child.stderr.take())?;
-
     let (command_tx, command_rx) = mpsc::channel::<String>(COMMAND_CHANNEL_CAPACITY);
     let (line_tx, line_rx) = mpsc::channel::<String>(LINE_CHANNEL_CAPACITY);
     let (kill_tx, kill_rx) = oneshot::channel::<()>();
 
-    let handle = ProcessHandle {
-        command_tx,
-        kill_tx: Some(kill_tx),
-        status: ServerStatus::Starting,
-        stop_requested: false,
-        pid: child.id(),
-        started_at: std::time::Instant::now(),
-        players: Vec::new(),
-        stop_command: config.loader.stop_command(),
-    };
-    running_guard.insert(config.id.clone(), handle);
-    drop(running_guard);
+    // Reserve the slot under the lock so a concurrent start of the same server
+    // is rejected immediately, then release the lock before the (possibly
+    // multi-second) orphan reclaim below — starting one server must never
+    // freeze stop/kill/console for the others.
+    {
+        let mut running_guard = running.lock().await;
+        if running_guard.contains_key(&config.id) {
+            return Err(AppError::ServerAlreadyRunning);
+        }
+        let handle = ProcessHandle {
+            command_tx,
+            kill_tx: Some(kill_tx),
+            status: ServerStatus::Starting,
+            stop_requested: false,
+            pid: None,
+            started_at: std::time::Instant::now(),
+            players: Vec::new(),
+            stop_command: config.loader.stop_command(),
+        };
+        running_guard.insert(config.id.clone(), handle);
+    }
     emit_status(app, &config.id, ServerStatus::Starting);
+
+    reclaim_orphaned_server(app, &config.id, server_dir).await;
+
+    let (child, stdin, stdout, stderr) = match spawn_with_pipes(config, server_dir, java_executable)
+    {
+        Ok(parts) => parts,
+        Err(error) => {
+            // Roll back the reservation so the server isn't stuck "starting".
+            running.lock().await.remove(&config.id);
+            emit_status(app, &config.id, ServerStatus::Stopped);
+            return Err(error);
+        }
+    };
+    platform::tie_child_to_app_lifetime(&child);
+    write_pid_file(server_dir, child.id());
+
+    // Record the real PID now that the child exists.
+    if let Some(handle) = running.lock().await.get_mut(&config.id) {
+        handle.pid = child.id();
+    }
 
     tokio::spawn(forward_lines(stdout, line_tx.clone()));
     tokio::spawn(forward_lines(stderr, line_tx));
@@ -399,6 +414,22 @@ fn spawn_java_process(
 
     let child = command.spawn()?;
     Ok(child)
+}
+
+/// Spawns the child and takes ownership of its three pipes in one step, so a
+/// failure at any point leaves no half-started child behind (`kill_on_drop`
+/// reaps it).
+#[allow(clippy::type_complexity)]
+fn spawn_with_pipes(
+    config: &ServerConfig,
+    server_dir: &Path,
+    java_executable: &Path,
+) -> AppResult<(Child, ChildStdin, ChildStdout, ChildStderr)> {
+    let mut child = spawn_java_process(config, server_dir, java_executable)?;
+    let stdin = take_pipe(child.stdin.take())?;
+    let stdout = take_pipe(child.stdout.take())?;
+    let stderr = take_pipe(child.stderr.take())?;
+    Ok((child, stdin, stdout, stderr))
 }
 
 /// How a loader's installed files are launched.

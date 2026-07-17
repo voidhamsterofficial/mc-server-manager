@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, type DirEntry, type ServerConfig } from "../../api";
   import { toastsStore } from "../../stores/toasts.svelte";
+  import { contextMenuStore, type MenuEntry } from "../../stores/contextMenu.svelte";
   import { formatBytes } from "../../format";
   import Button from "../../components/Button.svelte";
 
@@ -108,6 +109,41 @@
       toastsStore.error(String(error));
     }
   }
+
+  async function copyToClipboard(text: string, successMessage: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toastsStore.success(successMessage);
+    } catch (error) {
+      toastsStore.error(String(error));
+    }
+  }
+
+  /** Right-click actions for one file or folder. */
+  function openEntryMenu(event: MouseEvent, entry: DirEntry) {
+    const items: MenuEntry[] = [];
+    if (entry.isDir) {
+      items.push({ label: "Open folder", emoji: "📂", action: () => openEntry(entry) });
+    } else {
+      items.push({
+        label: "Edit file",
+        emoji: "📝",
+        disabled: !isTextFile(entry.name),
+        action: () => openEntry(entry),
+      });
+    }
+    items.push(
+      { label: "Copy name", emoji: "📋", action: () => copyToClipboard(entry.name, "Copied name 📋") },
+      "separator",
+      {
+        label: "Delete",
+        emoji: "🗑",
+        danger: true,
+        action: () => (confirmingDelete = entry.relPath),
+      },
+    );
+    contextMenuStore.show(event, items);
+  }
 </script>
 
 <div class="files-tab">
@@ -134,7 +170,11 @@
       <ul class="entries">
         {#each entries as entry (entry.relPath)}
           <li>
-            <button class="entry" onclick={() => openEntry(entry)}>
+            <button
+              class="entry"
+              onclick={() => openEntry(entry)}
+              oncontextmenu={(event) => openEntryMenu(event, entry)}
+            >
               <span class="entry-icon">{entry.isDir ? "📁" : isTextFile(entry.name) ? "📄" : "📦"}</span>
               <span class="entry-name">{entry.name}</span>
               <span class="entry-size">{entry.isDir ? "" : formatBytes(entry.sizeBytes)}</span>

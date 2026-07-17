@@ -24,6 +24,9 @@ struct Release {
 struct Asset {
     name: String,
     browser_download_url: String,
+    /// GitHub reports newer assets' hash as `sha256:<hex>`; older ones are null.
+    #[serde(default)]
+    digest: Option<String>,
 }
 
 /// `arclight-forge-1.21.1-1.0.3.jar` -> `1.21.1`.
@@ -91,12 +94,20 @@ pub async fn install(
         .find(|asset| asset.name.starts_with(&wanted_prefix) && asset.name.ends_with(".jar"))
         .ok_or_else(|| AppError::UnknownMinecraftVersion(mc_version.to_string()))?;
 
+    let sha256 = matching_asset
+        .digest
+        .as_deref()
+        .and_then(|digest| digest.strip_prefix("sha256:"));
+    let checksum = sha256
+        .map(ExpectedChecksum::Sha256)
+        .unwrap_or(ExpectedChecksum::None);
+
     let jar_path = server_dir.join(SERVER_JAR_NAME);
     download_file(
         client,
         &matching_asset.browser_download_url,
         &jar_path,
-        ExpectedChecksum::None,
+        checksum,
         report_progress,
     )
     .await

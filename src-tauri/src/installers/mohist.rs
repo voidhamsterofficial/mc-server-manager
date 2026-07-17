@@ -22,8 +22,10 @@ struct MohistBuilds {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct MohistBuild {
     number: u32,
+    file_sha256: Option<String>,
 }
 
 pub async fn list_versions(client: &reqwest::Client) -> AppResult<Vec<McVersion>> {
@@ -70,13 +72,11 @@ pub async fn install(
         "{MOHIST_API_BASE}/{mc_version}/builds/{}/download",
         latest_build.number
     );
+    let checksum = latest_build
+        .file_sha256
+        .as_deref()
+        .map(ExpectedChecksum::Sha256)
+        .unwrap_or(ExpectedChecksum::None);
     let jar_path = server_dir.join(SERVER_JAR_NAME);
-    download_file(
-        client,
-        &download_url,
-        &jar_path,
-        ExpectedChecksum::None,
-        report_progress,
-    )
-    .await
+    download_file(client, &download_url, &jar_path, checksum, report_progress).await
 }

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
-  import { api, type ServerConfig } from "../api";
+  import { api, supportsPlugins, type ServerConfig } from "../api";
   import { serversStore } from "../stores/servers.svelte";
   import { toastsStore } from "../stores/toasts.svelte";
   import StatusBlob from "../components/StatusBlob.svelte";
@@ -9,6 +9,7 @@
   import DashboardTab from "./tabs/DashboardTab.svelte";
   import ConsoleTab from "./tabs/ConsoleTab.svelte";
   import PlayersTab from "./tabs/PlayersTab.svelte";
+  import PluginsTab from "./tabs/PluginsTab.svelte";
   import SettingsTab from "./tabs/SettingsTab.svelte";
   import BackupsTab from "./tabs/BackupsTab.svelte";
   import SchedulerTab from "./tabs/SchedulerTab.svelte";
@@ -21,21 +22,35 @@
 
   let { server, onback }: Props = $props();
 
-  const TABS = [
+  const ALL_TABS = [
     { id: "dashboard", label: "Dashboard", emoji: "🏡" },
     { id: "console", label: "Console", emoji: "📜" },
     { id: "players", label: "Players", emoji: "🧑‍🤝‍🧑" },
+    { id: "plugins", label: "Plugins", emoji: "🧩" },
     { id: "files", label: "Files", emoji: "📁" },
     { id: "settings", label: "Settings", emoji: "🛠️" },
     { id: "backups", label: "Backups", emoji: "🎁" },
     { id: "scheduler", label: "Scheduler", emoji: "⏰" },
   ] as const;
 
-  type TabId = (typeof TABS)[number]["id"];
+  type TabId = (typeof ALL_TABS)[number]["id"];
+
+  // The Plugins tab only appears for plugin-capable software.
+  const tabs = $derived(
+    ALL_TABS.filter((tab) => tab.id !== "plugins" || supportsPlugins(server.loader)),
+  );
 
   let activeTab = $state<TabId>("dashboard");
   let busy = $state(false);
   let confirmingDelete = $state(false);
+
+  $effect(() => {
+    // If the visible tabs change (switching servers) and the active one is
+    // gone, fall back to the dashboard.
+    if (!tabs.some((tab) => tab.id === activeTab)) {
+      activeTab = "dashboard";
+    }
+  });
 
   const status = $derived(serversStore.statusOf(server.id));
   const canStart = $derived(status === "stopped" || status === "crashed");
@@ -114,7 +129,7 @@
   </header>
 
   <nav class="tabs">
-    {#each TABS as tab (tab.id)}
+    {#each tabs as tab (tab.id)}
       <button
         class="tab"
         class:active={activeTab === tab.id}
@@ -133,6 +148,8 @@
       <ConsoleTab {server} />
     {:else if activeTab === "players"}
       <PlayersTab {server} />
+    {:else if activeTab === "plugins"}
+      <PluginsTab {server} />
     {:else if activeTab === "files"}
       <FilesTab {server} />
     {:else if activeTab === "settings"}

@@ -7,6 +7,7 @@ mod files;
 mod installers;
 mod java;
 mod platform;
+mod plugins;
 mod process;
 mod properties;
 mod roster;
@@ -63,6 +64,11 @@ pub fn run() {
             commands::read_server_file,
             commands::write_server_file,
             commands::delete_server_file,
+            commands::list_plugins,
+            commands::set_plugin_enabled,
+            commands::delete_plugin,
+            commands::search_plugins,
+            commands::install_plugin,
             commands::create_backup,
             commands::list_backups,
             commands::restore_backup,

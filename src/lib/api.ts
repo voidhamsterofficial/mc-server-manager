@@ -21,6 +21,23 @@ export type Loader =
 
 export const PROXY_LOADERS: Loader[] = ["velocity", "bungeecord"];
 
+/** Loaders that load `.jar` plugins (Bukkit family, hybrids, proxies). Mirrors
+ *  `Loader::plugin_facet` on the backend. */
+export const PLUGIN_LOADERS: Loader[] = [
+  "paper",
+  "purpur",
+  "spigot",
+  "folia",
+  "mohist",
+  "arclight",
+  "velocity",
+  "bungeecord",
+];
+
+export function supportsPlugins(loader: Loader): boolean {
+  return PLUGIN_LOADERS.includes(loader);
+}
+
 export type ServerStatus = "stopped" | "starting" | "running" | "stopping" | "crashed";
 
 export interface ServerConfig {
@@ -122,6 +139,7 @@ export interface PlayerDetail {
   name: string;
   online: boolean;
   banned: boolean;
+  banReason: string | null;
   firstJoinedUnix: number;
   lastSeenUnix: number;
   joinCount: number;
@@ -135,6 +153,23 @@ export interface PlayerDetail {
 export interface ServerAddress {
   lanIp: string;
   port: string;
+}
+
+export interface InstalledPlugin {
+  fileName: string;
+  displayName: string;
+  enabled: boolean;
+  sizeBytes: number;
+}
+
+export interface PluginSearchResult {
+  projectId: string;
+  slug: string;
+  title: string;
+  description: string;
+  downloads: number;
+  iconUrl: string | null;
+  author: string;
 }
 
 export interface DirEntry {
@@ -199,6 +234,16 @@ export const api = {
     invoke<void>("write_server_file", { serverId, relPath, contents }),
   deleteServerFile: (serverId: string, relPath: string) =>
     invoke<void>("delete_server_file", { serverId, relPath }),
+  listPlugins: (serverId: string) =>
+    invoke<InstalledPlugin[]>("list_plugins", { serverId }),
+  setPluginEnabled: (serverId: string, fileName: string, enabled: boolean) =>
+    invoke<string>("set_plugin_enabled", { serverId, fileName, enabled }),
+  deletePlugin: (serverId: string, fileName: string) =>
+    invoke<void>("delete_plugin", { serverId, fileName }),
+  searchPlugins: (serverId: string, query: string) =>
+    invoke<PluginSearchResult[]>("search_plugins", { serverId, query }),
+  installPlugin: (serverId: string, projectId: string) =>
+    invoke<InstalledPlugin>("install_plugin", { serverId, projectId }),
   getServerProperties: (serverId: string) =>
     invoke<Property[]>("get_server_properties", { serverId }),
   saveServerProperties: (serverId: string, updates: Property[]) =>

@@ -2,6 +2,8 @@
   import { api, type PlayerDetail } from "../api";
   import { toastsStore } from "../stores/toasts.svelte";
   import { formatDateTime, formatUptime } from "../format";
+  import { commandArg, commandText } from "../commands";
+  import { reasonPromptStore } from "../stores/reasonPrompt.svelte";
   import Modal from "./Modal.svelte";
   import Button from "./Button.svelte";
 
@@ -17,6 +19,9 @@
 
   let detail = $state<PlayerDetail | null>(null);
   let loading = $state(false);
+  // Bumped on every load so a slow response for a previously-viewed player
+  // can't overwrite the one we're looking at now.
+  let loadToken = 0;
 
   $effect(() => {
     if (playerName !== null) {
@@ -27,13 +32,21 @@
   });
 
   async function loadDetail(id: string, name: string) {
+    const token = ++loadToken;
     loading = true;
     try {
-      detail = await api.getPlayerDetail(id, name);
+      const result = await api.getPlayerDetail(id, name);
+      if (token === loadToken) {
+        detail = result;
+      }
     } catch (error) {
-      toastsStore.error(String(error));
+      if (token === loadToken) {
+        toastsStore.error(String(error));
+      }
     } finally {
-      loading = false;
+      if (token === loadToken) {
+        loading = false;
+      }
     }
   }
 
@@ -48,6 +61,48 @@
       toastsStore.error(String(error));
     }
   }
+
+  /** Kick/ban the shown player with an optional reason from a small dialog. */
+  async function moderateWithReason(
+    verb: "kick" | "ban",
+    actionLabel: string,
+    successMessage: string,
+  ) {
+    const name = detail?.name;
+    if (!name) {
+      return;
+    }
+    const reason = await reasonPromptStore.ask({
+      title: `${actionLabel} ${name}`,
+      actionLabel,
+      variant: "danger",
+    });
+    if (reason === null) {
+      return;
+    }
+    const base = `${verb} ${commandArg(name)}`;
+    const command = reason === "" ? base : `${base} ${commandText(reason)}`;
+    await runPlayerCommand(command, successMessage);
+    reloadDetailSoon();
+  }
+
+  function pardon() {
+    const name = detail?.name;
+    if (!name) {
+      return;
+    }
+    runPlayerCommand(`pardon ${commandArg(name)}`, `Pardoned ${name} 🕊️`).then(reloadDetailSoon);
+  }
+
+  /** The server writes banned-players.json a moment after the command runs, so
+   *  reload once more shortly after to pick up the new ban state and reason. */
+  function reloadDetailSoon() {
+    setTimeout(() => {
+      if (playerName) {
+        loadDetail(serverId, playerName);
+      }
+    }, 700);
+  }
 </script>
 
 <Modal open={playerName !== null} title="Player" {onclose}>
@@ -58,7 +113,7 @@
   {:else}
     <div class="head">
       <img
-        src="https://mc-heads.net/avatar/{detail.name}/64"
+        src="https://mc-heads.net/avatar/{encodeURIComponent(detail.name)}/64"
         alt=""
         width="64"
         height="64"
@@ -72,6 +127,13 @@
         </div>
       </div>
     </div>
+
+    {#if detail.banned}
+      <div class="ban-notice">
+        <span class="ban-label">🔨 Ban reason</span>
+        <span class="ban-reason">{detail.banReason ?? "No reason recorded"}</span>
+      </div>
+    {/if}
 
     <div class="stats">
       <div class="stat"><span>Playtime</span><b>{formatUptime(detail.totalPlaySeconds)}</b></div>
@@ -94,7 +156,7 @@
           variant="soft"
           disabled={!canCommand}
           title={canCommand ? "" : "Start the server to run this"}
-          onclick={() => runPlayerCommand(`pardon ${detail?.name}`, `Pardoned ${detail?.name} 🕊️`)}
+          onclick={pardon}
         >
           🕊️ Pardon
         </Button>
@@ -102,7 +164,7 @@
         <Button
           variant="danger"
           disabled={!canCommand}
-          onclick={() => runPlayerCommand(`ban ${detail?.name}`, `Banned ${detail?.name} 🔨`)}
+          onclick={() => moderateWithReason("ban", "🔨 Ban", `Banned ${detail?.name} 🔨`)}
         >
           🔨 Ban
         </Button>
@@ -111,14 +173,15 @@
         <Button
           variant="soft"
           disabled={!canCommand}
-          onclick={() => runPlayerCommand(`op ${detail?.name}`, `Opped ${detail?.name} 👑`)}
+          onclick={() =>
+            runPlayerCommand(`op ${commandArg(detail?.name ?? "")}`, `Opped ${detail?.name} 👑`)}
         >
           👑 Op
         </Button>
         <Button
           variant="danger"
           disabled={!canCommand}
-          onclick={() => runPlayerCommand(`kick ${detail?.name}`, `Kicked ${detail?.name} 👢`)}
+          onclick={() => moderateWithReason("kick", "👢 Kick", `Kicked ${detail?.name} 👢`)}
         >
           👢 Kick
         </Button>
@@ -185,6 +248,27 @@
   .badge.banned {
     color: var(--strawberry);
     background: var(--strawberry-soft);
+  }
+
+  .ban-notice {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    background: var(--strawberry-soft);
+    border-radius: var(--radius-sm);
+    padding: 0.6em 0.85em;
+    margin-bottom: 1rem;
+  }
+
+  .ban-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--strawberry);
+  }
+
+  .ban-reason {
+    font-size: 0.9rem;
+    word-break: break-word;
   }
 
   .stats {

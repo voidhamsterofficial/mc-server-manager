@@ -12,6 +12,11 @@
     .then((v) => (version = `v${v}`))
     .catch(() => (version = ""));
 
+  /** Open a link in the user's browser, surfacing any failure as a toast. */
+  function openExternal(url: string) {
+    openUrl(url).catch((error) => toastsStore.error(String(error)));
+  }
+
   let settings = $state<AppSettings | null>(null);
   let javaInstalls = $state<JavaInstall[]>([]);
   let detectingJava = $state(false);
@@ -154,7 +159,7 @@
     </p>
     <p class="hint">
       Running a Minecraft server means you agree to the
-      <button class="link" onclick={() => openUrl("https://aka.ms/MinecraftEULA")}>
+      <button class="link" onclick={() => openExternal("https://aka.ms/MinecraftEULA")}>
         Minecraft EULA
       </button>. The Java runtime is Eclipse Temurin (GPLv2+CE) and the pixel font is
       Monocraft (SIL OFL 1.1). The software is provided “as is”, without warranty of any
@@ -162,7 +167,10 @@
       up anything you can't afford to lose.
     </p>
     <p class="hint">
-      <button class="link" onclick={() => openUrl("https://github.com/Squ1ggly/mc-server-manager")}>
+      <button
+        class="link"
+        onclick={() => openExternal("https://github.com/Squ1ggly/mc-server-manager")}
+      >
         Source &amp; issues on GitHub
       </button>
     </p>

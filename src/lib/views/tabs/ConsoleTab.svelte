@@ -14,6 +14,7 @@
 
   let commandText = $state("");
   let commandInput = $state<HTMLInputElement | null>(null);
+  let consoleEl = $state<HTMLDivElement | null>(null);
 
   const status = $derived(serversStore.statusOf(server.id));
   const consoleLines = $derived(serversStore.consoleOf(server.id));
@@ -78,12 +79,12 @@
   }
 
   function openQuickCommands(event: MouseEvent) {
-    contextMenuStore.show(event, quickCommands());
+    contextMenuStore.showAbove(event, consoleEl, quickCommands());
   }
 </script>
 
 <div class="console-tab">
-  <div class="console">
+  <div class="console" bind:this={consoleEl}>
     <ConsoleView lines={consoleLines} />
   </div>
 

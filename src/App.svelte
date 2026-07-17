@@ -11,7 +11,7 @@
   import { openPath } from "@tauri-apps/plugin-opener";
   import { api, type ServerConfig } from "./lib/api";
   import Toasts from "./lib/components/Toasts.svelte";
-  import Confetti from "./lib/components/Confetti.svelte";
+  import ReasonPrompt from "./lib/components/ReasonPrompt.svelte";
   import StatusBlob from "./lib/components/StatusBlob.svelte";
   import GrassBlock from "./lib/components/GrassBlock.svelte";
   import { serversStore } from "./lib/stores/servers.svelte";
@@ -39,7 +39,6 @@
   const JAVA_PILL_DONE_LINGER_MS = 1_600;
 
   let route = $state<Route>({ view: "home" });
-  let confettiBurst = $state(0);
   let wizardOpen = $state(false);
   let javaDownload = $state<InstallProgressEvent | null>(null);
   let javaPillTimer: ReturnType<typeof setTimeout> | undefined;
@@ -249,7 +248,6 @@
         serversStore.setStatus(event.serverId, event.status);
 
         if (previousStatus === "starting" && event.status === "running") {
-          confettiBurst += 1;
           toastsStore.success("Server is up — happy crafting! 🎉");
         }
         if (event.status === "crashed") {
@@ -353,8 +351,8 @@
 
 <CreateServerWizard open={wizardOpen} onclose={() => (wizardOpen = false)} />
 <ContextMenu />
+<ReasonPrompt />
 <Toasts />
-<Confetti trigger={confettiBurst} />
 
 <style>
   .shell {

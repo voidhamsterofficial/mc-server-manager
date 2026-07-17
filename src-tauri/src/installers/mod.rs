@@ -18,6 +18,11 @@ use std::path::Path;
 use crate::error::{AppError, AppResult};
 use crate::servers::Loader;
 
+/// Upper bound on any single download. Server jars, installers and the Bedrock
+/// zip are well under this; the cap just stops a hostile or mis-configured
+/// endpoint from streaming until the disk fills.
+const MAX_DOWNLOAD_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+
 /// Installs the chosen server software into `server_dir`.
 /// `java_executable` is required for installers that run a Java tool
 /// (Forge, NeoForge, Quilt, Spigot's BuildTools).
@@ -122,7 +127,7 @@ use serde::Serialize;
 use sha1::Digest as Sha1Digest;
 use sha1::Sha1;
 use sha2::digest::Digest as Sha256Digest;
-use sha2::Sha256;
+use sha2::{Sha256, Sha512};
 use tokio::io::AsyncWriteExt;
 
 /// Which checksum a download is verified against. `None` is for sources
@@ -131,6 +136,67 @@ pub enum ExpectedChecksum<'a> {
     None,
     Sha1(&'a str),
     Sha256(&'a str),
+    Sha512(&'a str),
+}
+
+/// An owned checksum, so a verifier can be fetched before the download call
+/// that borrows it.
+pub enum OwnedChecksum {
+    Sha1(String),
+    Sha256(String),
+}
+
+impl OwnedChecksum {
+    pub fn as_expected(&self) -> ExpectedChecksum<'_> {
+        match self {
+            OwnedChecksum::Sha1(hex) => ExpectedChecksum::Sha1(hex),
+            OwnedChecksum::Sha256(hex) => ExpectedChecksum::Sha256(hex),
+        }
+    }
+}
+
+/// Fetches a single Maven-style checksum sidecar (`<file_url>.<extension>`).
+/// These contain the bare hex hash, sometimes followed by whitespace and a
+/// filename, so we take the first token and validate it.
+async fn fetch_checksum_sidecar(
+    client: &reqwest::Client,
+    file_url: &str,
+    extension: &str,
+) -> AppResult<String> {
+    let sidecar_url = format!("{file_url}.{extension}");
+    let body = client
+        .get(&sidecar_url)
+        .send()
+        .await?
+        .error_for_status()?
+        .text()
+        .await?;
+
+    let hex = body
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if hex.is_empty() || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(AppError::Process(format!(
+            "checksum sidecar at {sidecar_url} was not valid hex"
+        )));
+    }
+    Ok(hex)
+}
+
+/// Fetches a Maven artifact's checksum, preferring SHA-256 and falling back to
+/// the SHA-1 that Maven repositories always publish. Used to verify installer
+/// jars that are then executed — closing the door on a tampered mirror.
+pub async fn fetch_maven_checksum(
+    client: &reqwest::Client,
+    file_url: &str,
+) -> AppResult<OwnedChecksum> {
+    if let Ok(hex) = fetch_checksum_sidecar(client, file_url, "sha256").await {
+        return Ok(OwnedChecksum::Sha256(hex));
+    }
+    let hex = fetch_checksum_sidecar(client, file_url, "sha1").await?;
+    Ok(OwnedChecksum::Sha1(hex))
 }
 
 /// Progress of an ongoing installation, emitted as `install:progress`.
@@ -196,10 +262,18 @@ pub async fn download_file(
 ) -> AppResult<()> {
     let response = client.get(url).send().await?.error_for_status()?;
     let total_bytes = response.content_length();
+    if let Some(total) = total_bytes {
+        if total > MAX_DOWNLOAD_BYTES {
+            return Err(AppError::Process(format!(
+                "refusing to download {total} bytes from {url}: exceeds the {MAX_DOWNLOAD_BYTES}-byte limit"
+            )));
+        }
+    }
 
     let mut file = tokio::fs::File::create(destination).await?;
     let mut sha1_hasher = Sha1::new();
     let mut sha256_hasher = Sha256::new();
+    let mut sha512_hasher = Sha512::new();
     let mut downloaded_bytes: u64 = 0;
     let mut body_stream = response.bytes_stream();
 
@@ -208,10 +282,18 @@ pub async fn download_file(
         match expected {
             ExpectedChecksum::Sha1(_) => sha1_hasher.update(&chunk),
             ExpectedChecksum::Sha256(_) => sha256_hasher.update(&chunk),
+            ExpectedChecksum::Sha512(_) => sha512_hasher.update(&chunk),
             ExpectedChecksum::None => {}
         }
-        file.write_all(&chunk).await?;
         downloaded_bytes += chunk.len() as u64;
+        if downloaded_bytes > MAX_DOWNLOAD_BYTES {
+            drop(file);
+            let _ = tokio::fs::remove_file(destination).await;
+            return Err(AppError::Process(format!(
+                "download from {url} exceeded the {MAX_DOWNLOAD_BYTES}-byte limit"
+            )));
+        }
+        file.write_all(&chunk).await?;
         report_progress(downloaded_bytes, total_bytes);
     }
     file.flush().await?;
@@ -223,6 +305,9 @@ pub async fn download_file(
         ExpectedChecksum::Sha1(expected_hex) => (expected_hex, hex::encode(sha1_hasher.finalize())),
         ExpectedChecksum::Sha256(expected_hex) => {
             (expected_hex, hex::encode(sha256_hasher.finalize()))
+        }
+        ExpectedChecksum::Sha512(expected_hex) => {
+            (expected_hex, hex::encode(sha512_hasher.finalize()))
         }
     };
     verify_checksum(destination, expected_hex, &actual_hex)

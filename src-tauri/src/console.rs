@@ -130,22 +130,55 @@ pub fn parse_signal(line: &str) -> Option<ConsoleSignal> {
     None
 }
 
-/// Matches `Set <name>'s game mode to <Mode> Mode` and returns the player
-/// and the short mode word (Survival, Creative, Adventure, Spectator).
+/// Detects a game-mode change and returns the affected player plus the short
+/// mode word (Survival, Creative, Adventure, Spectator). Handles all the shapes
+/// Minecraft emits:
+/// * console targeting a player: `Set <name>'s game mode to <Mode> Mode`
+/// * op broadcast, self:   `[<actor>: Set own game mode to <Mode> Mode]`
+/// * op broadcast, other:  `[<actor>: Set <name>'s game mode to <Mode> Mode]`
 fn game_mode_change(message: &str) -> Option<(String, String)> {
-    let after_prefix = message.strip_prefix("Set ")?;
-    let (name, rest) = after_prefix.split_once("'s game mode to ")?;
+    // Command feedback broadcast to ops is wrapped as `[<actor>: <feedback>]`.
+    let (actor, feedback) = match message
+        .strip_prefix('[')
+        .and_then(|inner| inner.strip_suffix(']'))
+    {
+        Some(wrapped) => {
+            let (actor, feedback) = wrapped.split_once(": ")?;
+            (Some(actor), feedback)
+        }
+        None => (None, message),
+    };
 
-    let is_single_token = !name.is_empty() && !name.contains(' ') && !name.contains('<');
-    if !is_single_token {
-        return None;
+    let after_prefix = feedback.strip_prefix("Set ")?;
+
+    // "Set own game mode to X Mode" — the affected player is the actor.
+    if let Some(rest) = after_prefix.strip_prefix("own game mode to ") {
+        let player = actor.filter(|name| is_single_token(name))?;
+        let mode = short_mode(rest)?;
+        return Some((player.to_string(), mode));
     }
 
-    let mode = rest.trim_end_matches(" Mode").trim().to_string();
+    // "Set <name>'s game mode to X Mode" — the affected player is <name>.
+    let (name, rest) = after_prefix.split_once("'s game mode to ")?;
+    if !is_single_token(name) {
+        return None;
+    }
+    let mode = short_mode(rest)?;
+    Some((name.to_string(), mode))
+}
+
+/// Trims the trailing " Mode" and whitespace, returning None if nothing is left.
+fn short_mode(rest: &str) -> Option<String> {
+    let mode = rest.trim_end_matches(" Mode").trim();
     if mode.is_empty() {
         return None;
     }
-    Some((name.to_string(), mode))
+    Some(mode.to_string())
+}
+
+/// A single-token player name: non-empty, no spaces, no `<` (rules out chat).
+fn is_single_token(name: &str) -> bool {
+    !name.is_empty() && !name.contains(' ') && !name.contains('<')
 }
 
 /// Matches chat lines of the shape `<Name> message`.
@@ -153,8 +186,7 @@ fn chat_message(message: &str) -> Option<(String, String)> {
     let after_open = message.strip_prefix('<')?;
     let (name, rest) = after_open.split_once("> ")?;
 
-    let is_player_name = !name.is_empty() && !name.contains('<') && !name.contains(' ');
-    if !is_player_name {
+    if !is_single_token(name) {
         return None;
     }
     Some((name.to_string(), rest.to_string()))
@@ -177,8 +209,7 @@ fn bedrock_player_name(line: &str, marker: &str) -> Option<String> {
 fn kicked_player_name(message: &str) -> Option<String> {
     let after_prefix = message.strip_prefix("Kicked ")?;
     let (name, _reason) = after_prefix.split_once(':')?;
-    let is_single_token = !name.is_empty() && !name.contains(' ') && !name.contains('<');
-    if !is_single_token {
+    if !is_single_token(name) {
         return None;
     }
     Some(name.to_string())
@@ -205,8 +236,7 @@ fn is_ready_message(message: &str) -> bool {
 /// cannot contain `<` or spaces.
 fn player_event_name(message: &str, suffix: &str) -> Option<String> {
     let name = message.strip_suffix(suffix)?;
-    let is_single_token = !name.is_empty() && !name.contains(' ') && !name.contains('<');
-    if !is_single_token {
+    if !is_single_token(name) {
         return None;
     }
     Some(name.to_string())
@@ -552,6 +582,34 @@ mod tests {
             Some(ConsoleSignal::GameModeChanged {
                 player: "Alex".to_string(),
                 mode: "Creative".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn detects_self_game_mode_change_broadcast() {
+        // A player changing their own mode is broadcast to ops as
+        // `[<actor>: Set own game mode to ...]` — the actor is the player.
+        let line = "[12:00:00] [Server thread/INFO]: [Alex: Set own game mode to Survival Mode]";
+        assert_eq!(
+            parse_signal(line),
+            Some(ConsoleSignal::GameModeChanged {
+                player: "Alex".to_string(),
+                mode: "Survival".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn detects_op_game_mode_change_broadcast() {
+        // An op changing someone else's mode: the affected player is the name,
+        // not the acting op.
+        let line = "[12:00:00] [Server thread/INFO]: [Bob: Set Alex's game mode to Adventure Mode]";
+        assert_eq!(
+            parse_signal(line),
+            Some(ConsoleSignal::GameModeChanged {
+                player: "Alex".to_string(),
+                mode: "Adventure".to_string(),
             })
         );
     }

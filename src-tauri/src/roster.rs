@@ -47,6 +47,8 @@ pub struct PlayerDetail {
     pub name: String,
     pub online: bool,
     pub banned: bool,
+    /// The reason recorded when the player was banned, if any.
+    pub ban_reason: Option<String>,
     pub first_joined_unix: u64,
     pub last_seen_unix: u64,
     pub join_count: u32,
@@ -168,7 +170,8 @@ impl RosterStore {
         server_id: &str,
         player_name: &str,
         online_players: &[String],
-        banned_names: &[String],
+        banned: bool,
+        ban_reason: Option<String>,
     ) -> Option<PlayerDetail> {
         let now = current_unix_time();
         let mut rosters = self.by_server.lock().await;
@@ -187,7 +190,8 @@ impl RosterStore {
         Some(PlayerDetail {
             name: player_name.to_string(),
             online: online_players.iter().any(|p| p == player_name),
-            banned: banned_names.iter().any(|b| b == player_name),
+            banned,
+            ban_reason,
             first_joined_unix: record.first_joined_unix,
             last_seen_unix: record.last_seen_unix,
             join_count: record.join_count,
@@ -318,12 +322,23 @@ fn roster_path(rosters_dir: &Path, server_id: &str) -> PathBuf {
     rosters_dir.join(format!("{server_id}.json"))
 }
 
-/// Player names from the server's own `banned-players.json` — the
-/// authoritative ban list, whether banned from our UI or in-game.
-pub fn read_banned_names(server_dir: &Path) -> Vec<String> {
+/// One entry from the server's `banned-players.json`.
+#[derive(Debug, Clone)]
+pub struct BanRecord {
+    pub name: String,
+    /// The reason recorded with the ban (Minecraft defaults to
+    /// "Banned by an operator." when none is given).
+    pub reason: Option<String>,
+}
+
+/// The server's own `banned-players.json` — the authoritative ban list,
+/// whether the ban came from our UI or in-game, with each ban's reason.
+pub fn read_bans(server_dir: &Path) -> Vec<BanRecord> {
     #[derive(Deserialize)]
     struct BannedPlayer {
         name: String,
+        #[serde(default)]
+        reason: Option<String>,
     }
 
     let path = server_dir.join("banned-players.json");
@@ -331,5 +346,19 @@ pub fn read_banned_names(server_dir: &Path) -> Vec<String> {
         return Vec::new();
     };
     let entries: Vec<BannedPlayer> = serde_json::from_str(&contents).unwrap_or_default();
-    entries.into_iter().map(|entry| entry.name).collect()
+    entries
+        .into_iter()
+        .map(|entry| BanRecord {
+            name: entry.name,
+            reason: entry.reason,
+        })
+        .collect()
+}
+
+/// Just the names from `banned-players.json`, for the roster list.
+pub fn read_banned_names(server_dir: &Path) -> Vec<String> {
+    read_bans(server_dir)
+        .into_iter()
+        .map(|record| record.name)
+        .collect()
 }

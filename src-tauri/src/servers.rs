@@ -44,6 +44,24 @@ impl Loader {
             _ => "stop",
         }
     }
+
+    /// The Modrinth loader name used to filter compatible plugins, or `None`
+    /// for software that doesn't take plugins (mod loaders, vanilla, Bedrock).
+    /// A `Some` value also means this server supports plugins at all.
+    pub fn plugin_facet(self) -> Option<&'static str> {
+        let facet = match self {
+            Loader::Paper => "paper",
+            Loader::Purpur => "purpur",
+            Loader::Spigot => "spigot",
+            Loader::Folia => "folia",
+            // Hybrids load Bukkit/Spigot plugins.
+            Loader::Mohist | Loader::Arclight => "spigot",
+            Loader::Velocity => "velocity",
+            Loader::BungeeCord => "bungeecord",
+            _ => return None,
+        };
+        Some(facet)
+    }
 }
 
 /// Lifecycle state of a server process.

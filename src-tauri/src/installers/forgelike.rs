@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::error::{AppError, AppResult};
 use crate::installers::vanilla::McVersion;
-use crate::installers::{download_file, run_java_tool, ExpectedChecksum, ProgressCallback};
+use crate::installers::{download_file, fetch_maven_checksum, run_java_tool, ProgressCallback};
 use crate::servers::Loader;
 
 const FORGE_PROMOTIONS_URL: &str =
@@ -70,12 +70,15 @@ pub async fn install(
         }
     };
 
+    // This jar is executed with --installServer, so verify it against the
+    // Maven checksum before running it.
+    let checksum = fetch_maven_checksum(client, &installer_url).await?;
     let installer_path = server_dir.join(INSTALLER_FILE);
     download_file(
         client,
         &installer_url,
         &installer_path,
-        ExpectedChecksum::None,
+        checksum.as_expected(),
         report_progress,
     )
     .await?;

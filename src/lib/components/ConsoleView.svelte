@@ -5,12 +5,50 @@
 
   import { onMount } from "svelte";
   import type { ConsoleLine } from "../events";
+  import { contextMenuStore, type MenuEntry } from "../stores/contextMenu.svelte";
+  import { toastsStore } from "../stores/toasts.svelte";
 
   interface Props {
     lines: ConsoleLine[];
   }
 
   let { lines }: Props = $props();
+
+  /** The whole buffer as plain text, one line per row. */
+  function consoleText(): string {
+    return lines.map((line) => line.spans.map((span) => span.text).join("")).join("\n");
+  }
+
+  async function copyText(text: string, successMessage: string) {
+    if (text === "") {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toastsStore.success(successMessage);
+    } catch (error) {
+      toastsStore.error(String(error));
+    }
+  }
+
+  function openMenu(event: MouseEvent) {
+    const selection = window.getSelection()?.toString() ?? "";
+    const entries: MenuEntry[] = [
+      {
+        label: "Copy selection",
+        emoji: "📋",
+        disabled: selection === "",
+        action: () => copyText(selection, "Copied selection 📋"),
+      },
+      {
+        label: "Copy all output",
+        emoji: "📄",
+        disabled: lines.length === 0,
+        action: () => copyText(consoleText(), "Copied console output 📄"),
+      },
+    ];
+    contextMenuStore.show(event, entries);
+  }
 
   let viewport = $state<HTMLDivElement | null>(null);
   let stickToBottom = $state(true);
@@ -51,7 +89,14 @@
   });
 </script>
 
-<div class="viewport" bind:this={viewport} onscroll={handleScroll}>
+<div
+  class="viewport"
+  bind:this={viewport}
+  onscroll={handleScroll}
+  oncontextmenu={openMenu}
+  role="log"
+  aria-label="Server console output"
+>
   {#if lines.length === 0}
     <p class="empty">Console output will appear here… 🌱</p>
   {:else}

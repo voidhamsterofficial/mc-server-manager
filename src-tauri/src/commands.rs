@@ -13,6 +13,7 @@ use crate::error::{AppError, AppResult};
 use crate::files;
 use crate::installers::{self, vanilla};
 use crate::java::{self, JavaInstall};
+use crate::plugins;
 use crate::process;
 use crate::properties::{self, Property};
 use crate::roster::{self, RosterEntry};
@@ -491,11 +492,21 @@ pub async fn get_player_detail(
         .get(&server_id)
         .cloned()
         .unwrap_or_default();
-    let banned_names = roster::read_banned_names(&state.server_dir(&config));
+
+    let bans = roster::read_bans(&state.server_dir(&config));
+    let ban = bans.iter().find(|record| record.name == player_name);
+    let banned = ban.is_some();
+    let ban_reason = ban.and_then(|record| record.reason.clone());
 
     let detail = state
         .rosters
-        .detail(&server_id, &player_name, &online_players, &banned_names)
+        .detail(
+            &server_id,
+            &player_name,
+            &online_players,
+            banned,
+            ban_reason,
+        )
         .await;
     Ok(detail)
 }
@@ -543,6 +554,92 @@ pub async fn delete_server_file(
 ) -> AppResult<()> {
     let config = service::find_config(&app, &server_id).await?;
     files::delete_entry(&state.server_dir(&config), &rel_path)
+}
+
+/// The Modrinth loader facet for a plugin-capable server, or an error for
+/// software that doesn't take plugins.
+fn plugin_facet(config: &ServerConfig) -> AppResult<&'static str> {
+    config.loader.plugin_facet().ok_or_else(|| {
+        AppError::InvalidInput("this server type does not support plugins".to_string())
+    })
+}
+
+/// Empty for proxies (whose plugins aren't tagged by Minecraft version).
+fn plugin_mc_version(config: &ServerConfig) -> &str {
+    if config.loader.is_proxy() {
+        ""
+    } else {
+        &config.mc_version
+    }
+}
+
+#[tauri::command]
+pub async fn list_plugins(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+) -> AppResult<Vec<plugins::InstalledPlugin>> {
+    let config = service::find_config(&app, &server_id).await?;
+    plugins::list_installed(&state.server_dir(&config))
+}
+
+#[tauri::command]
+pub async fn set_plugin_enabled(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    file_name: String,
+    enabled: bool,
+) -> AppResult<String> {
+    let config = service::find_config(&app, &server_id).await?;
+    plugins::set_enabled(&state.server_dir(&config), &file_name, enabled)
+}
+
+#[tauri::command]
+pub async fn delete_plugin(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    file_name: String,
+) -> AppResult<()> {
+    let config = service::find_config(&app, &server_id).await?;
+    plugins::delete(&state.server_dir(&config), &file_name)
+}
+
+#[tauri::command]
+pub async fn search_plugins(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    query: String,
+) -> AppResult<Vec<plugins::PluginSearchResult>> {
+    let config = service::find_config(&app, &server_id).await?;
+    let facet = plugin_facet(&config)?;
+    plugins::search(&state.http, &query, facet, plugin_mc_version(&config)).await
+}
+
+#[tauri::command]
+pub async fn install_plugin(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    project_id: String,
+) -> AppResult<plugins::InstalledPlugin> {
+    let config = service::find_config(&app, &server_id).await?;
+    let facet = plugin_facet(&config)?;
+    let server_dir = state.server_dir(&config);
+    let mc_version = plugin_mc_version(&config).to_string();
+    let report_progress =
+        installers::progress_event_reporter(app, config.id.clone(), "download-plugin");
+    plugins::install_from_modrinth(
+        &state.http,
+        &server_dir,
+        &project_id,
+        facet,
+        &mc_version,
+        &report_progress,
+    )
+    .await
 }
 
 #[tauri::command]
