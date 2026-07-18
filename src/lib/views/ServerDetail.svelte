@@ -141,24 +141,29 @@
     {/each}
   </nav>
 
+  <!-- Keyed on the server so switching servers fully remounts the active tab.
+       This gives every tab a clean per-server state and prevents a slow load
+       for the previous server from resolving into the new one's view. -->
   <div class="tab-content">
-    {#if activeTab === "dashboard"}
-      <DashboardTab {server} />
-    {:else if activeTab === "console"}
-      <ConsoleTab {server} />
-    {:else if activeTab === "players"}
-      <PlayersTab {server} />
-    {:else if activeTab === "plugins"}
-      <PluginsTab {server} />
-    {:else if activeTab === "files"}
-      <FilesTab {server} />
-    {:else if activeTab === "settings"}
-      <SettingsTab {server} />
-    {:else if activeTab === "backups"}
-      <BackupsTab {server} />
-    {:else if activeTab === "scheduler"}
-      <SchedulerTab {server} />
-    {/if}
+    {#key server.id}
+      {#if activeTab === "dashboard"}
+        <DashboardTab {server} />
+      {:else if activeTab === "console"}
+        <ConsoleTab {server} />
+      {:else if activeTab === "players"}
+        <PlayersTab {server} />
+      {:else if activeTab === "plugins"}
+        <PluginsTab {server} />
+      {:else if activeTab === "files"}
+        <FilesTab {server} />
+      {:else if activeTab === "settings"}
+        <SettingsTab {server} />
+      {:else if activeTab === "backups"}
+        <BackupsTab {server} />
+      {:else if activeTab === "scheduler"}
+        <SchedulerTab {server} />
+      {/if}
+    {/key}
   </div>
 </section>
 

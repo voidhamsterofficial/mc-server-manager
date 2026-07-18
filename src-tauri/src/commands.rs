@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use serde::Deserialize;
 
@@ -167,7 +167,35 @@ pub async fn start_server(app: AppHandle, server_id: String) -> AppResult<()> {
 
 #[tauri::command]
 pub async fn stop_server(app: AppHandle, server_id: String) -> AppResult<()> {
-    service::stop_server(&app, &server_id).await
+    service::stop_server(&app, &server_id).await?;
+    // An explicit stop should also close any port we opened to the internet.
+    // (Restart goes through service::restart_server, which doesn't call this, so
+    // a restart keeps the mapping.)
+    close_forward_after_stop(&app, server_id);
+    Ok(())
+}
+
+/// Best-effort, off the request path: if this server's port was UPnP-forwarded
+/// this session, close the mapping so a stopped server isn't left reachable.
+fn close_forward_after_stop(app: &AppHandle, server_id: String) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let state = app.state::<AppState>();
+        if !state.forwarded.lock().await.remove(&server_id) {
+            return;
+        }
+        let Ok(config) = service::find_config(&app, &server_id).await else {
+            return;
+        };
+        let server_dir = state.server_dir(&config);
+        let Ok(port) = configured_port(&server_dir, config.loader).parse::<u16>() else {
+            return;
+        };
+        let Ok(std::net::IpAddr::V4(lan_ip)) = local_lan_ip().parse::<std::net::IpAddr>() else {
+            return;
+        };
+        let _ = portforward::close(forward_protocol(config.loader), port, lan_ip).await;
+    });
 }
 
 #[tauri::command]
@@ -207,7 +235,6 @@ pub async fn detect_java(state: State<'_, AppState>) -> AppResult<Vec<JavaInstal
 /// user can grab them when reporting a problem.
 #[tauri::command]
 pub async fn open_logs_dir(app: AppHandle) -> AppResult<()> {
-    use tauri::Manager;
     use tauri_plugin_opener::OpenerExt;
 
     let dir = app
@@ -668,7 +695,12 @@ pub async fn open_port_forward(
     };
 
     match portforward::open(forward_protocol(config.loader), port, lan_ip).await {
-        Ok(wan_ip) => Ok(forward_success(wan_ip, port).await),
+        Ok(wan_ip) => {
+            // Remember it so an explicit stop closes the mapping instead of
+            // leaving the port open to the internet.
+            state.forwarded.lock().await.insert(server_id.clone());
+            Ok(forward_success(wan_ip, port).await)
+        }
         Err(portforward::PortForwardError::NoGateway) => Ok(ForwardResult::failure(
             "No UPnP router found. Check that UPnP is enabled on your router, and that \
              this PC isn't on a VPN or a guest network — either one hides the router \
@@ -705,7 +737,12 @@ pub async fn port_forward_status(
     };
 
     match portforward::status(forward_protocol(config.loader), port, lan_ip).await {
-        Ok(Some(wan_ip)) => Ok(Some(forward_success(wan_ip, port).await)),
+        Ok(Some(wan_ip)) => {
+            // A mapping left over from a previous run — track it so stopping the
+            // server still closes it this session.
+            state.forwarded.lock().await.insert(server_id.clone());
+            Ok(Some(forward_success(wan_ip, port).await))
+        }
         _ => Ok(None),
     }
 }
@@ -718,6 +755,8 @@ pub async fn close_port_forward(
     state: State<'_, AppState>,
     server_id: String,
 ) -> AppResult<()> {
+    state.forwarded.lock().await.remove(&server_id);
+
     let config = service::find_config(&app, &server_id).await?;
     let server_dir = state.server_dir(&config);
     let port = configured_port(&server_dir, config.loader).parse::<u16>();

@@ -4,6 +4,7 @@ mod console;
 mod error;
 mod events;
 mod files;
+mod fsutil;
 mod installers;
 mod java;
 mod platform;

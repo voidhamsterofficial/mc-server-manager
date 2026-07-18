@@ -201,7 +201,7 @@
         ],
         [
           {
-            text: "The easy way: on a server's Dashboard, click \"Open to internet\". Blockparty asks your router to forward the port for you over UPnP and, when it works, shows a public address to share. Click \"Close\" to remove it again when you're done — an open port stays reachable by anyone until you do. Mappings outlive the app, so a server left open still shows as forwarded next time you launch Blockparty.",
+            text: "The easy way: on a server's Dashboard, click \"Open to internet\". Blockparty asks your router to forward the port for you over UPnP and, when it works, shows a public address to share. Stopping the server closes the port automatically, or click \"Close\" to remove it yourself — an open port is reachable by anyone while it's up. Mappings outlive the app, so a server left open still shows as forwarded next time you launch Blockparty.",
           },
         ],
         [

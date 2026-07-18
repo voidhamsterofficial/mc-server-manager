@@ -53,7 +53,7 @@ pub fn load_tasks(path: &Path) -> AppResult<Vec<ScheduledTask>> {
 
 pub fn save_tasks(path: &Path, tasks: &[ScheduledTask]) -> AppResult<()> {
     let serialized = serde_json::to_string_pretty(tasks)?;
-    std::fs::write(path, serialized)?;
+    crate::fsutil::atomic_write(path, serialized.as_bytes())?;
     Ok(())
 }
 

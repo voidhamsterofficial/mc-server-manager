@@ -113,14 +113,14 @@
   }
 
   async function browseIcon() {
-    const picked = await openFolderDialog({
-      title: "Choose a server icon image",
-      filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] }],
-    });
-    if (typeof picked !== "string") {
-      return;
-    }
     try {
+      const picked = await openFolderDialog({
+        title: "Choose a server icon image",
+        filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] }],
+      });
+      if (typeof picked !== "string") {
+        return;
+      }
       await api.setServerIcon(server.id, picked);
       await loadIcon(server.id);
       toastsStore.success("Server icon updated — applies on the next start 🖼️");
@@ -140,12 +140,16 @@
   }
 
   async function browseBackupsDir() {
-    const picked = await openFolderDialog({
-      directory: true,
-      title: "Choose where this server's backups go",
-    });
-    if (typeof picked === "string") {
-      editedBackupsDir = picked;
+    try {
+      const picked = await openFolderDialog({
+        directory: true,
+        title: "Choose where this server's backups go",
+      });
+      if (typeof picked === "string") {
+        editedBackupsDir = picked;
+      }
+    } catch (error) {
+      toastsStore.error(String(error));
     }
   }
 

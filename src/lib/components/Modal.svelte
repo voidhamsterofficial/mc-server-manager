@@ -15,10 +15,67 @@
 
   let { open, title, onclose, wide = false, children }: Props = $props();
 
+  let dialog = $state<HTMLDivElement | null>(null);
+  let previouslyFocused: HTMLElement | null = null;
+
+  $effect(() => {
+    if (open) {
+      previouslyFocused = document.activeElement as HTMLElement | null;
+      // Defer past children that focus themselves (e.g. ReasonPrompt's input),
+      // and don't steal focus if it's already landed inside the dialog.
+      queueMicrotask(() => {
+        if (dialog && !dialog.contains(document.activeElement)) {
+          dialog.focus();
+        }
+      });
+    } else if (previouslyFocused) {
+      previouslyFocused.focus();
+      previouslyFocused = null;
+    }
+  });
+
   function handleOverlayClick() {
     onclose?.();
   }
+
+  /** Visible, enabled, focusable elements inside the dialog, in tab order. */
+  function focusable(): HTMLElement[] {
+    if (!dialog) return [];
+    const selector =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    return Array.from(dialog.querySelectorAll<HTMLElement>(selector)).filter(
+      (element) => element.offsetParent !== null,
+    );
+  }
+
+  /** Escape to close, and keep Tab focus cycling within the open dialog. */
+  function onWindowKeydown(event: KeyboardEvent) {
+    if (!open) return;
+    if (event.key === "Escape") {
+      onclose?.();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const items = focusable();
+    if (items.length === 0) {
+      event.preventDefault();
+      dialog?.focus();
+      return;
+    }
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || active === dialog)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 </script>
+
+<svelte:window onkeydown={onWindowKeydown} />
 
 {#if open}
   <div
@@ -27,12 +84,16 @@
     onclick={handleOverlayClick}
     role="presentation"
   >
+    <!-- The click handler only stops backdrop clicks from bubbling out and
+         closing the modal; keyboard interaction (Esc, Tab trap) is handled on
+         the window, so no keydown handler belongs here. -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div
       class="dialog"
       class:wide
+      bind:this={dialog}
       transition:scale={{ start: 0.97, duration: 140, easing: cubicOut }}
       onclick={(event) => event.stopPropagation()}
-      onkeydown={(event) => event.key === "Escape" && onclose?.()}
       role="dialog"
       aria-modal="true"
       aria-label={title}

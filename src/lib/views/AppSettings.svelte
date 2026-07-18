@@ -44,14 +44,14 @@
   }
 
   async function browseBaseDir() {
-    const picked = await openFolderDialog({
-      directory: true,
-      title: "Choose where new servers are created",
-    });
-    if (typeof picked !== "string") {
-      return;
-    }
     try {
+      const picked = await openFolderDialog({
+        directory: true,
+        title: "Choose where new servers are created",
+      });
+      if (typeof picked !== "string") {
+        return;
+      }
       settings = await api.setServersBaseDir(picked);
       toastsStore.success("Default server location updated 📁");
     } catch (error) {

@@ -191,8 +191,17 @@
   const visibleVersions = $derived(
     versions.filter((version) => showSnapshots || version.type === "release"),
   );
+  // A cleared number input binds to null, and the min/max attributes are only
+  // spinner hints — so validate the port before it can reach the backend.
+  const portValid = $derived(
+    typeof port === "number" && Number.isInteger(port) && port >= 1024 && port <= 65535,
+  );
   const canSubmit = $derived(
-    name.trim().length > 0 && selectedVersion !== "" && (acceptEula || isProxy) && !creating,
+    name.trim().length > 0 &&
+      selectedVersion !== "" &&
+      portValid &&
+      (acceptEula || isProxy) &&
+      !creating,
   );
 
   $effect(() => {
@@ -322,12 +331,16 @@
   }
 
   async function browseLocation() {
-    const picked = await openFolderDialog({
-      directory: true,
-      title: "Choose where your servers live",
-    });
-    if (typeof picked === "string") {
-      locationParent = picked;
+    try {
+      const picked = await openFolderDialog({
+        directory: true,
+        title: "Choose where your servers live",
+      });
+      if (typeof picked === "string") {
+        locationParent = picked;
+      }
+    } catch (error) {
+      toastsStore.error(String(error));
     }
   }
 </script>
@@ -405,7 +418,11 @@
               max="65535"
               bind:value={port}
               oninput={() => (portTouched = true)}
+              aria-invalid={portTouched && !portValid}
             />
+            {#if portTouched && !portValid}
+              <span class="field-error">Enter a port from 1024–65535</span>
+            {/if}
           </label>
         </div>
         {#if hasSnapshots}
@@ -683,6 +700,12 @@
 
   .port-label {
     min-width: 0;
+  }
+
+  .field-error {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--strawberry);
   }
 
   input[type="text"],

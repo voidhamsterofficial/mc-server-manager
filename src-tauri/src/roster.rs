@@ -314,7 +314,7 @@ fn load_roster(rosters_dir: &Path, server_id: &str) -> Roster {
 fn save_roster(rosters_dir: &Path, server_id: &str, roster: &Roster) -> AppResult<()> {
     std::fs::create_dir_all(rosters_dir)?;
     let serialized = serde_json::to_string_pretty(roster)?;
-    std::fs::write(roster_path(rosters_dir, server_id), serialized)?;
+    crate::fsutil::atomic_write(&roster_path(rosters_dir, server_id), serialized.as_bytes())?;
     Ok(())
 }
 

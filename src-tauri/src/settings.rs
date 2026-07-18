@@ -33,7 +33,7 @@ impl GlobalSettings {
     pub fn save(&self, path: &Path) -> AppResult<()> {
         let serialized = serde_yaml::to_string(self)
             .map_err(|yaml_error| AppError::Process(yaml_error.to_string()))?;
-        std::fs::write(path, serialized)?;
+        crate::fsutil::atomic_write(path, serialized.as_bytes())?;
         Ok(())
     }
 }
