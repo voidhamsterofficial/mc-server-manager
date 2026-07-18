@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
+  import { Server, Wrench, Gift, Image, MessageSquare, NotebookText } from "@lucide/svelte";
   import {
     api,
     resolveBackupsDir,
@@ -123,7 +124,7 @@
       }
       await api.setServerIcon(server.id, picked);
       await loadIcon(server.id);
-      toastsStore.success("Server icon updated — applies on the next start 🖼️");
+      toastsStore.success("Server icon updated — applies on the next start");
     } catch (error) {
       toastsStore.error(String(error));
     }
@@ -206,7 +207,7 @@
           Number.isNaN(retentionNumber) || retentionNumber < 1 ? null : retentionNumber,
       });
       await serversStore.refresh();
-      toastsStore.success("Server settings saved 💾");
+      toastsStore.success("Server settings saved");
     } catch (error) {
       toastsStore.error(String(error));
     } finally {
@@ -220,7 +221,7 @@
       const updates: Property[] = Object.entries(edited).map(([key, value]) => ({ key, value }));
       await api.saveServerProperties(server.id, updates);
       await loadProperties(server.id);
-      toastsStore.success("server.properties saved — restart to apply 🔁");
+      toastsStore.success("server.properties saved — restart to apply");
     } catch (error) {
       toastsStore.error(String(error));
     } finally {
@@ -231,7 +232,7 @@
 
 <div class="settings-tab">
   <section class="card">
-    <h3>🧸 Server</h3>
+    <h3><Server size={18} /> Server</h3>
     <div class="config-grid">
       <label>
         <span>Name</span>
@@ -267,7 +268,7 @@
     <div class="advanced">
       <button type="button" class="advanced-toggle" onclick={() => (advancedOpen = !advancedOpen)}>
         <span class="chevron" class:open={advancedOpen}>▸</span>
-        🛠️ Advanced launch
+        <Wrench size={15} /> Advanced launch
       </button>
       {#if advancedOpen}
         <div class="advanced-body">
@@ -295,7 +296,7 @@
       {/if}
     </div>
     <div class="backups-row">
-      <span class="backups-label">🎁 Backups folder</span>
+      <span class="backups-label"><Gift size={14} /> Backups folder</span>
       <div class="backups-controls">
         <code class="backups-path" title={backupsDirPreview}>{backupsDirPreview}</code>
         <Button variant="soft" onclick={browseBackupsDir}>Browse…</Button>
@@ -316,7 +317,7 @@
     <section class="card">
       <div class="icon-motd-grid">
         <div class="icon-block">
-          <h3>🖼️ Server icon</h3>
+          <h3><Image size={18} /> Server icon</h3>
         <div class="icon-row">
           {#if iconDataUrl}
             <img class="icon-preview" src={iconDataUrl} alt="Server icon" width="64" height="64" />
@@ -337,7 +338,7 @@
       </div>
 
         <div class="motd-block">
-          <h3>💬 MOTD</h3>
+          <h3><MessageSquare size={18} /> MOTD</h3>
           <MotdEditor
             value={motdValue}
             onchange={(text) => setValue("motd", encodeMotdProperty(text))}
@@ -350,15 +351,15 @@
 
   <section class="card props-card">
     <div class="props-head">
-      <h3>🗒️ server.properties</h3>
-      <input class="filter" type="text" bind:value={filterText} placeholder="Filter keys… 🔍" />
+      <h3><NotebookText size={18} /> server.properties</h3>
+      <input class="filter" type="text" bind:value={filterText} placeholder="Filter keys…" />
     </div>
 
     {#if loadingProperties}
       <p class="hint">Loading…</p>
     {:else if properties.length === 0}
       <p class="hint">
-        No server.properties yet — it appears after the server's first start 🌱
+        No server.properties yet — it appears after the server's first start
       </p>
     {:else}
       <div class="props-list">

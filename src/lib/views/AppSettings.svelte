@@ -1,5 +1,16 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
+  import {
+    Settings,
+    Folder,
+    Package,
+    Coffee,
+    Search,
+    LifeBuoy,
+    Skull,
+    ScrollText,
+    KeyRound,
+  } from "@lucide/svelte";
   import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { getVersion } from "@tauri-apps/api/app";
@@ -32,11 +43,35 @@
   let storageLocation = $state<StorageLocation | null>(null);
   let movingStorage = $state(false);
 
+  let curseforgeApiKey = $state("");
+  let savingCurseforgeKey = $state(false);
+
   $effect(() => {
     loadSettings();
     detectJava();
     loadStorageLocation();
+    loadCurseforgeApiKey();
   });
+
+  async function loadCurseforgeApiKey() {
+    try {
+      curseforgeApiKey = (await api.getCurseforgeApiKey()) ?? "";
+    } catch (error) {
+      toastsStore.error(String(error));
+    }
+  }
+
+  async function saveCurseforgeApiKey() {
+    savingCurseforgeKey = true;
+    try {
+      await api.setCurseforgeApiKey(curseforgeApiKey);
+      toastsStore.success("CurseForge API key saved");
+    } catch (error) {
+      toastsStore.error(String(error));
+    } finally {
+      savingCurseforgeKey = false;
+    }
+  }
 
   async function loadSettings() {
     try {
@@ -56,7 +91,7 @@
         return;
       }
       settings = await api.setServersBaseDir(picked);
-      toastsStore.success("Default server location updated 📁");
+      toastsStore.success("Default server location updated");
     } catch (error) {
       toastsStore.error(String(error));
     }
@@ -81,7 +116,7 @@
         return;
       }
       storageLocation = await api.setStorageLocation(picked);
-      toastsStore.success("App storage moved 📦");
+      toastsStore.success("App storage moved");
     } catch (error) {
       toastsStore.error(String(error));
     } finally {
@@ -93,7 +128,7 @@
     movingStorage = true;
     try {
       storageLocation = await api.resetStorageLocation();
-      toastsStore.success("App storage moved back to the default location 📦");
+      toastsStore.success("App storage moved back to the default location");
     } catch (error) {
       toastsStore.error(String(error));
     } finally {
@@ -121,10 +156,10 @@
     try {
       const killedCount = await api.killAllJava();
       if (killedCount === 0) {
-        toastsStore.show("No Blockparty server processes found — all clear ✨");
+        toastsStore.show("No Blockparty server processes found — all clear");
       } else {
         toastsStore.success(
-          `Terminated ${killedCount} server process${killedCount === 1 ? "" : "es"} 💀`,
+          `Terminated ${killedCount} server process${killedCount === 1 ? "" : "es"}`,
         );
       }
     } catch (error) {
@@ -136,11 +171,11 @@
 </script>
 
 <section class="settings" in:fade={{ duration: 120 }}>
-  <h1>Settings ⚙️</h1>
+  <h1><Settings size={22} /> Settings</h1>
 
   <div class="card">
     <div class="card-head">
-      <h3>📁 Default server location</h3>
+      <h3><Folder size={16} /> Default server location</h3>
       <Button variant="soft" disabled={settings === null} onclick={browseBaseDir}>
         Change…
       </Button>
@@ -156,7 +191,7 @@
   <div class="card">
     <div class="card-head">
       <h3>
-        📦 App storage
+        <Package size={16} /> App storage
         {#if storageLocation}
           <span class="badge" class:custom={!storageLocation.isDefault}>
             {storageLocation.isDefault ? "Default" : "Custom"}
@@ -184,9 +219,9 @@
 
   <div class="card">
     <div class="card-head">
-      <h3>☕ Java installations</h3>
+      <h3><Coffee size={16} /> Java installations</h3>
       <Button variant="soft" disabled={detectingJava} onclick={detectJava}>
-        {detectingJava ? "Scanning…" : "🔍 Re-scan"}
+        {#if !detectingJava}<Search size={14} />{/if} {detectingJava ? "Scanning…" : "Re-scan"}
       </Button>
     </div>
     {#if detectingJava && javaInstalls.length === 0}
@@ -209,7 +244,30 @@
 
   <div class="card">
     <div class="card-head">
-      <h3>🧯 Recovery</h3>
+      <h3><KeyRound size={16} /> CurseForge API key</h3>
+      <Button variant="soft" disabled={savingCurseforgeKey} onclick={saveCurseforgeApiKey}>
+        {savingCurseforgeKey ? "Saving…" : "Save"}
+      </Button>
+    </div>
+    <p class="hint">
+      Needed to browse and install mods from CurseForge in a server's Mods tab. Get a
+      free key from your
+      <button class="link" onclick={() => openExternal("https://console.curseforge.com/")}>
+        CurseForge Core account
+      </button>. Modrinth mods work without one.
+    </p>
+    <input
+      class="text-input"
+      type="password"
+      bind:value={curseforgeApiKey}
+      placeholder="Paste your CurseForge API key"
+      spellcheck="false"
+    />
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3><LifeBuoy size={16} /> Recovery</h3>
       {#if confirmingKill}
         <span class="confirm-row">
           <Button variant="danger" disabled={killingJava} onclick={killAllJava}>
@@ -219,7 +277,7 @@
         </span>
       {:else}
         <Button variant="danger" disabled={killingJava} onclick={() => (confirmingKill = true)}>
-          {killingJava ? "Sweeping…" : "💀 Kill all server processes"}
+          {#if !killingJava}<Skull size={15} />{/if} {killingJava ? "Sweeping…" : "Kill all server processes"}
         </Button>
       {/if}
     </div>
@@ -231,7 +289,7 @@
   </div>
 
   <div class="card">
-    <h3>📜 About & terms</h3>
+    <h3><ScrollText size={16} /> About & terms</h3>
     <p class="hint">
       Blockparty {version} — a free, open-source Minecraft server manager. It contains
       no Mojang game assets and is not affiliated with, endorsed by, or associated with
@@ -324,6 +382,24 @@
     margin: 0 0 0.6rem;
     font-size: 0.85rem;
     color: var(--muted);
+  }
+
+  .text-input {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: 0.9rem;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 2px solid transparent;
+    border-radius: var(--radius-md);
+    padding: 0.5em 0.8em;
+    outline: none;
+    transition: border-color 0.18s ease;
+  }
+
+  .text-input:focus {
+    border-color: var(--accent);
   }
 
   .path {

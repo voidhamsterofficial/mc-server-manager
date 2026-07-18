@@ -47,7 +47,11 @@
           role="menuitem"
           onclick={() => run(entry)}
         >
-          <span class="emoji">{entry.emoji ?? ""}</span>
+          <span class="icon" class:danger={entry.danger} class:tone-success={entry.tone === "success"} class:tone-warning={entry.tone === "warning"} class:tone-info={entry.tone === "info"}>
+            {#if entry.icon}
+              <entry.icon size={15} />
+            {/if}
+          </span>
           {entry.label}
         </button>
       {/if}
@@ -102,10 +106,26 @@
     cursor: default;
   }
 
-  .emoji {
-    width: 1.2em;
-    text-align: center;
-    font-family: var(--font-body);
+  .icon {
+    display: inline-flex;
+    width: 15px;
+    flex-shrink: 0;
+  }
+
+  .icon.danger {
+    color: var(--strawberry);
+  }
+
+  .icon.tone-success {
+    color: var(--mint);
+  }
+
+  .icon.tone-warning {
+    color: var(--peach);
+  }
+
+  .icon.tone-info {
+    color: var(--chart-mem);
   }
 
   .separator {

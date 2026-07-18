@@ -1,13 +1,22 @@
 import { defineConfig } from "vitest/config";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 
+// The frontend lives entirely in src/ (index.html included); src-tauri/ is
+// the Rust backend. Only tooling configs sit at the repo root.
+//
+// `cargo tauri dev` points its `devUrl` at this dev server (see
+// tauri.conf.json's `build.devUrl`), so the app window gets Vite's HMR —
+// UI edits show up live instead of needing a full rebuild. Production
+// builds (`npm run build` / `beforeBuildCommand`) still emit static files
+// to dist/ with no dev server involved.
 export default defineConfig({
-  // The frontend lives entirely in src/ (index.html included); src-tauri/ is
-  // the Rust backend. Only tooling configs sit at the repo root. There is no
-  // dev server: the app always loads the built files from dist/.
   root: "src",
   plugins: [svelte({ configFile: "../svelte.config.js" })],
   clearScreen: false,
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
   build: {
     outDir: "../dist",
     emptyOutDir: true,

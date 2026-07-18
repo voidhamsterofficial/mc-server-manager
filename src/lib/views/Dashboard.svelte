@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
+  import { Plus } from "@lucide/svelte";
   import { serversStore } from "../stores/servers.svelte";
   import type { ServerConfig } from "../api";
   import ServerCard from "../components/ServerCard.svelte";
@@ -20,7 +21,7 @@
     <div class="empty" in:fade={{ duration: 120 }}>
       <GrassBlock size={72} />
       <p>No servers yet — build your first one!</p>
-      <Button onclick={onnew}>＋ New server</Button>
+      <Button onclick={onnew}><Plus size={15} /> New server</Button>
     </div>
   {:else}
     <h1>Your servers</h1>

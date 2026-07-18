@@ -1,8 +1,32 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, type Component } from "svelte";
   import { fade } from "svelte/transition";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
+  import {
+    IceCreamCone,
+    Mountain,
+    ScrollText,
+    FlaskConical,
+    Cpu,
+    Cog,
+    Feather,
+    Flame,
+    Hammer,
+    Layers,
+    Link2,
+    Merge,
+    Zap,
+    Globe,
+    ArrowLeft,
+    Blocks,
+    Pickaxe,
+    PackageOpen,
+    Rocket,
+    Save,
+    Folder,
+    Wrench,
+  } from "@lucide/svelte";
   import { api, PROXY_LOADERS, type Loader, type McVersion } from "../api";
   import {
     MEMORY_MAX_MB,
@@ -27,7 +51,8 @@
   interface CatalogEntry {
     value: Loader;
     label: string;
-    emoji: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    icon: Component<any>;
     hint: string;
     available: boolean;
   }
@@ -39,14 +64,14 @@
         {
           value: "vanilla",
           label: "Vanilla",
-          emoji: "🍦",
+          icon: IceCreamCone,
           hint: "The official Mojang server",
           available: true,
         },
         {
           value: "bds",
           label: "Bedrock",
-          emoji: "🪨",
+          icon: Mountain,
           hint: "Official Bedrock server (Win/Linux)",
           available: true,
         },
@@ -58,28 +83,28 @@
         {
           value: "paper",
           label: "Paper",
-          emoji: "📜",
+          icon: ScrollText,
           hint: "Fast — the plugin gold standard",
           available: true,
         },
         {
           value: "purpur",
           label: "Purpur",
-          emoji: "🧪",
+          icon: FlaskConical,
           hint: "Paper + extreme configurability",
           available: true,
         },
         {
           value: "folia",
           label: "Folia",
-          emoji: "🧵",
+          icon: Cpu,
           hint: "Multithreaded, huge player counts",
           available: true,
         },
         {
           value: "spigot",
           label: "Spigot",
-          emoji: "🔩",
+          icon: Cog,
           hint: "Compiled by BuildTools — takes minutes",
           available: true,
         },
@@ -91,28 +116,28 @@
         {
           value: "fabric",
           label: "Fabric",
-          emoji: "🧶",
+          icon: Feather,
           hint: "Lightweight modern mod loader",
           available: true,
         },
         {
           value: "neoforge",
           label: "NeoForge",
-          emoji: "🔥",
+          icon: Flame,
           hint: "The modern Forge successor",
           available: true,
         },
         {
           value: "forge",
           label: "Forge",
-          emoji: "⚒️",
+          icon: Hammer,
           hint: "The classic modding giant",
           available: true,
         },
         {
           value: "quilt",
           label: "Quilt",
-          emoji: "🪡",
+          icon: Layers,
           hint: "Community fork of Fabric",
           available: true,
         },
@@ -124,14 +149,14 @@
         {
           value: "arclight",
           label: "Arclight",
-          emoji: "🌉",
+          icon: Link2,
           hint: "Plugins on Forge (Forge edition)",
           available: true,
         },
         {
           value: "mohist",
           label: "Mohist",
-          emoji: "🧬",
+          icon: Merge,
           hint: "Forge modpacks + plugins",
           available: true,
         },
@@ -143,14 +168,14 @@
         {
           value: "velocity",
           label: "Velocity",
-          emoji: "⚡",
+          icon: Zap,
           hint: "Modern secure proxy",
           available: true,
         },
         {
           value: "bungeecord",
           label: "BungeeCord",
-          emoji: "🌐",
+          icon: Globe,
           hint: "The original network proxy",
           available: true,
         },
@@ -253,7 +278,7 @@
 
   function chooseSoftware(entry: CatalogEntry) {
     if (!entry.available) {
-      toastsStore.show(`${entry.label} support is coming soon! 🚧`);
+      toastsStore.show(`${entry.label} support is coming soon!`);
       return;
     }
     loader = entry.value;
@@ -296,7 +321,7 @@
         startCommand: startCommand.trim() === "" ? null : startCommand.trim(),
       });
       await serversStore.refresh();
-      toastsStore.success(`"${server.name}" is ready! 🎂`);
+      toastsStore.success(`"${server.name}" is ready!`);
       resetForm();
       onclose();
     } catch (error) {
@@ -348,7 +373,7 @@
 <Modal
   {open}
   wide
-  title={step === "software" ? "Pick your server software 🧱" : "New server 🍰"}
+  title={step === "software" ? "Pick your server software" : "New server"}
   onclose={creating ? undefined : handleClose}
 >
   {#if step === "software"}
@@ -364,7 +389,7 @@
                 class:unavailable={!entry.available}
                 onclick={() => chooseSoftware(entry)}
               >
-                <span class="tile-emoji">{entry.emoji}</span>
+                <span class="tile-emoji"><entry.icon size={26} /></span>
                 <span class="tile-name">
                   {entry.label}
                   {#if !entry.available}
@@ -381,13 +406,13 @@
   {:else}
     <form onsubmit={submit} in:fade={{ duration: 120 }}>
       <button type="button" class="chosen" onclick={() => (step = "software")}>
-        <span class="tile-emoji">{chosenEntry?.emoji}</span>
+        <span class="tile-emoji">{#if chosenEntry}<chosenEntry.icon size={22} />{/if}</span>
         <span class="chosen-name">{chosenEntry?.label}</span>
         <span class="chosen-change">change</span>
       </button>
 
       <section class="group">
-        <h4>🧱 Basics</h4>
+        <h4><Blocks size={16} /> Basics</h4>
         <div class="group-grid">
           <label class="grow">
             <span>Name</span>
@@ -401,7 +426,7 @@
           <label class="grow">
             <span>Version</span>
             {#if loadingVersions}
-              <div class="loading">Fetching versions… ⛏️</div>
+              <div class="loading"><Pickaxe size={14} /> Fetching versions…</div>
             {:else}
               <select bind:value={selectedVersion}>
                 {#each visibleVersions as version (version.id)}
@@ -440,7 +465,7 @@
       </section>
 
       <section class="group">
-        <h4>💾 Resources & storage</h4>
+        <h4><Save size={16} /> Resources & storage</h4>
         {#if !isBedrock}
           <label>
             <span>Memory — {memoryMb} MB</span>
@@ -454,7 +479,7 @@
           </label>
         {/if}
         <div class="location">
-          <span class="field-label">📁 Save location</span>
+          <span class="field-label"><Folder size={14} /> Save location</span>
           <div class="location-row">
             <span class="location-path" title={locationPreview}>
               {locationPreview || "…"}
@@ -481,7 +506,7 @@
           onclick={() => (advancedOpen = !advancedOpen)}
         >
           <span class="chevron" class:open={advancedOpen}>▸</span>
-          🛠️ Advanced
+          <Wrench size={14} /> Advanced
         </button>
         {#if advancedOpen}
           <div class="advanced-body">
@@ -516,14 +541,14 @@
       {#if creating}
         <div class="progress">
           <ProgressBar value={progress} />
-          <p class="hint centered">Downloading the server software… 📦</p>
+          <p class="hint centered"><PackageOpen size={14} /> Downloading the server software…</p>
         </div>
       {/if}
 
       <div class="actions">
-        <Button variant="ghost" onclick={() => (step = "software")}>← Back</Button>
+        <Button variant="ghost" onclick={() => (step = "software")}><ArrowLeft size={16} /> Back</Button>
         <Button type="submit" disabled={!canSubmit}>
-          {creating ? "Creating…" : "Create server 🚀"}
+          {#if !creating}<Rocket size={16} />{/if} {creating ? "Creating…" : "Create server"}
         </Button>
       </div>
     </form>
@@ -588,8 +613,8 @@
   }
 
   .tile-emoji {
-    font-size: 1.5rem;
-    line-height: 1;
+    display: inline-flex;
+    color: var(--accent-strong);
   }
 
   .tile-name {
@@ -639,6 +664,9 @@
     margin: 0;
     font-size: 0.85rem;
     font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
   }
 
   .group-grid {
@@ -654,6 +682,9 @@
   }
 
   .field-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
     font-size: 0.9rem;
     font-weight: 600;
     color: var(--muted);
@@ -751,6 +782,9 @@
   }
 
   .loading {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
     color: var(--muted);
     font-weight: 400;
     padding: 0.6em 0;
@@ -828,7 +862,10 @@
   }
 
   .hint.centered {
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4em;
   }
 
   .actions {

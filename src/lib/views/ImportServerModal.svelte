@@ -93,7 +93,7 @@
         mcVersion: mcVersion.trim(),
         memoryMb,
       });
-      toastsStore.success(`Imported "${config.name}" 📥`);
+      toastsStore.success(`Imported "${config.name}"`);
       onimported();
       close();
     } catch (error) {

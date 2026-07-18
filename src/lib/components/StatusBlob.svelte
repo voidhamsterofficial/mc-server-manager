@@ -19,7 +19,8 @@
     style:--blob-soft="var({meta.softVar})"
   >
     <span class="dot" class:pulsing={meta.pulsing} class:glowing={status === "running"}></span>
-    <span class="pill-text">{meta.label} {meta.emoji}</span>
+    <span class="pill-text">{meta.label}</span>
+    <meta.icon size={13} />
   </span>
 {:else}
   <span

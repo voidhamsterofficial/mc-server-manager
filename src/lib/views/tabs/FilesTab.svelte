@@ -1,5 +1,16 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
+  import {
+    FolderOpen,
+    Pencil,
+    Copy,
+    Trash2,
+    ArrowLeft,
+    Save,
+    Folder,
+    FileText,
+    Package,
+  } from "@lucide/svelte";
   import { api, type DirEntry, type ServerConfig } from "../../api";
   import { toastsStore } from "../../stores/toasts.svelte";
   import { contextMenuStore, type MenuEntry } from "../../stores/contextMenu.svelte";
@@ -38,7 +49,7 @@
   });
 
   function buildBreadcrumbs(path: string): { label: string; path: string }[] {
-    const crumbs = [{ label: "📁 root", path: "" }];
+    const crumbs = [{ label: "root", path: "" }];
     if (path === "") {
       return crumbs;
     }
@@ -92,7 +103,7 @@
     savingFile = true;
     try {
       await api.writeServerFile(server.id, openFile, fileContents);
-      toastsStore.success("File saved 💾");
+      toastsStore.success("File saved");
     } catch (error) {
       toastsStore.error(String(error));
     } finally {
@@ -124,21 +135,27 @@
   function openEntryMenu(event: MouseEvent, entry: DirEntry) {
     const items: MenuEntry[] = [];
     if (entry.isDir) {
-      items.push({ label: "Open folder", emoji: "📂", action: () => openEntry(entry) });
+      items.push({
+        label: "Open folder",
+        icon: FolderOpen,
+        tone: "info",
+        action: () => openEntry(entry),
+      });
     } else {
       items.push({
         label: "Edit file",
-        emoji: "📝",
+        icon: Pencil,
+        tone: "info",
         disabled: !isTextFile(entry.name),
         action: () => openEntry(entry),
       });
     }
     items.push(
-      { label: "Copy name", emoji: "📋", action: () => copyToClipboard(entry.name, "Copied name 📋") },
+      { label: "Copy name", icon: Copy, action: () => copyToClipboard(entry.name, "Copied name") },
       "separator",
       {
         label: "Delete",
-        emoji: "🗑",
+        icon: Trash2,
         danger: true,
         action: () => (confirmingDelete = entry.relPath),
       },
@@ -150,9 +167,11 @@
 <div class="files-tab">
   {#if openFile !== null}
     <div class="editor-head">
-      <Button variant="ghost" onclick={() => (openFile = null)}>← Back to files</Button>
+      <Button variant="ghost" onclick={() => (openFile = null)}>
+        <ArrowLeft size={15} /> Back to files
+      </Button>
       <code class="editing">{openFile}</code>
-      <Button disabled={savingFile} onclick={saveFile}>Save 💾</Button>
+      <Button disabled={savingFile} onclick={saveFile}><Save size={15} /> Save</Button>
     </div>
     <textarea class="editor" bind:value={fileContents} spellcheck="false"></textarea>
   {:else}
@@ -180,7 +199,15 @@
               onclick={() => openEntry(entry)}
               oncontextmenu={(event) => openEntryMenu(event, entry)}
             >
-              <span class="entry-icon">{entry.isDir ? "📁" : isTextFile(entry.name) ? "📄" : "📦"}</span>
+              <span class="entry-icon">
+                {#if entry.isDir}
+                  <Folder size={17} />
+                {:else if isTextFile(entry.name)}
+                  <FileText size={17} />
+                {:else}
+                  <Package size={17} />
+                {/if}
+              </span>
               <span class="entry-name">{entry.name}</span>
               <span class="entry-size">{entry.isDir ? "" : formatBytes(entry.sizeBytes)}</span>
             </button>
@@ -188,7 +215,9 @@
               <Button variant="danger" onclick={() => deleteEntry(entry.relPath)}>Sure?</Button>
               <Button variant="ghost" onclick={() => (confirmingDelete = null)}>No</Button>
             {:else}
-              <Button variant="ghost" onclick={() => (confirmingDelete = entry.relPath)}>🗑</Button>
+              <Button variant="ghost" square onclick={() => (confirmingDelete = entry.relPath)}>
+                <Trash2 size={15} />
+              </Button>
             {/if}
           </li>
         {/each}
@@ -284,6 +313,12 @@
     /* Tall padding so the click target fills the row height. */
     padding: 0.55rem 0.4rem;
     border-radius: var(--radius-sm);
+  }
+
+  .entry-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--muted);
   }
 
   .entry-name {

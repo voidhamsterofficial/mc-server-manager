@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Link2, Globe } from "@lucide/svelte";
   import { api, type ServerAddress, type ServerConfig } from "../../api";
   import { serversStore } from "../../stores/servers.svelte";
   import { statsStore } from "../../stores/stats.svelte";
@@ -85,7 +86,7 @@
       const result = await api.openPortForward(serverId);
       portForwardStore.record(serverId, result);
       if (result.success && !result.cgnat) {
-        toastsStore.success("Port forwarded — friends can join 🌍");
+        toastsStore.success("Port forwarded — friends can join");
       }
     } catch (error) {
       toastsStore.error(String(error));
@@ -100,7 +101,7 @@
     try {
       await api.closePortForward(serverId);
       portForwardStore.clear(serverId);
-      toastsStore.show("Closed to the internet 🔒");
+      toastsStore.show("Closed to the internet");
     } catch (error) {
       toastsStore.error(String(error));
     } finally {
@@ -111,7 +112,7 @@
   async function copy(text: string) {
     try {
       await navigator.clipboard.writeText(text);
-      toastsStore.success("Copied to clipboard 📋");
+      toastsStore.success("Copied to clipboard");
     } catch (error) {
       toastsStore.error(String(error));
     }
@@ -131,7 +132,7 @@
   <!-- Proxies get this too: the proxy is the address players actually connect
        to, so it's the one that most needs forwarding. -->
   <button class="address" onclick={() => copy(lanAddress)} title="Click to copy">
-    <span class="address-label">🔗 LAN address — click to copy</span>
+    <span class="address-label"><Link2 size={12} /> LAN address — click to copy</span>
     <span class="address-value">{lanAddress}</span>
   </button>
 
@@ -143,7 +144,7 @@
   >
     <div class="forward-head">
       <div class="forward-title">
-        <span class="forward-label">🌍 Play over the internet</span>
+        <span class="forward-label"><Globe size={12} /> Play over the internet</span>
         {#if forwarded}<span class="forward-tag">forwarded</span>{/if}
       </div>
       {#if forwarded}
@@ -170,7 +171,7 @@
           onclick={() => copy(forward!.publicAddress!)}
           title="Click to copy"
         >
-          <span class="address-label">🔗 Public address — click to copy</span>
+          <span class="address-label"><Link2 size={12} /> Public address — click to copy</span>
           <span class="address-value">{forward.publicAddress}</span>
         </button>
       {/if}
@@ -178,11 +179,11 @@
   </div>
 
   <div class="grid">
-    <StatTile label="Status" value="{statusMeta.label} {statusMeta.emoji}" />
+    <StatTile label="Status" value={statusMeta.label} />
     <StatTile
       label="Players online"
       value={String(players.length)}
-      sub={players.length > 0 ? players.slice(0, 5).join(", ") : "nobody here yet 🌙"}
+      sub={players.length > 0 ? players.slice(0, 5).join(", ") : "nobody here yet"}
     />
     <StatTile label="Uptime" value={uptimeText} />
     <StatTile label="Version" value={server.mcVersion} sub={server.loader} />
@@ -233,6 +234,9 @@
   }
 
   .address-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35em;
     font-size: 0.78rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -291,6 +295,9 @@
   }
 
   .forward-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35em;
     font-size: 0.78rem;
     font-weight: 700;
     text-transform: uppercase;

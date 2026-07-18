@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
+  import { Plus, Clock, Pencil, Trash2 } from "@lucide/svelte";
   import { api, type ScheduledTask, type ServerConfig, type TaskAction } from "../../api";
   import { toastsStore } from "../../stores/toasts.svelte";
   import { formatDateTime } from "../../format";
@@ -20,11 +21,11 @@
   ];
 
   const ACTION_KINDS = [
-    { value: "command", label: "💬 Run command" },
-    { value: "backup", label: "🎁 Back up" },
-    { value: "restart", label: "🔄 Restart" },
-    { value: "start", label: "▶ Start" },
-    { value: "stop", label: "⏹ Stop" },
+    { value: "command", label: "Run command" },
+    { value: "backup", label: "Back up" },
+    { value: "restart", label: "Restart" },
+    { value: "start", label: "Start" },
+    { value: "stop", label: "Stop" },
   ] as const;
 
   let tasks = $state<ScheduledTask[]>([]);
@@ -103,7 +104,7 @@
   async function saveTask(event: SubmitEvent) {
     event.preventDefault();
     if (formActionKind === "command" && formCommand.trim() === "") {
-      toastsStore.show("The task needs a command to run ✍️");
+      toastsStore.show("The task needs a command to run");
       return;
     }
     saving = true;
@@ -116,7 +117,7 @@
         action: buildAction(),
         enabled: formEnabled,
       });
-      toastsStore.success("Task scheduled ⏰");
+      toastsStore.success("Task scheduled");
       editing = false;
       await loadTasks();
     } catch (error) {
@@ -148,7 +149,7 @@
   async function runNow(taskId: string) {
     try {
       await api.runTaskNow(taskId);
-      toastsStore.success("Task fired 🚀");
+      toastsStore.success("Task fired");
     } catch (error) {
       toastsStore.error(String(error));
     }
@@ -156,7 +157,7 @@
 
   function describeAction(action: TaskAction): string {
     if (action.type === "command") {
-      return `💬 ${action.command}`;
+      return action.command;
     }
     const found = ACTION_KINDS.find((kind) => kind.value === action.type);
     return found?.label ?? action.type;
@@ -167,7 +168,7 @@
   <div class="head">
     <p class="hint">Automate restarts, backups, and commands — no plugins needed.</p>
     {#if !editing}
-      <Button onclick={startCreate}>＋ New task</Button>
+      <Button onclick={startCreate}><Plus size={15} /> New task</Button>
     {/if}
   </div>
 
@@ -228,7 +229,7 @@
 
   {#if myTasks.length === 0 && !editing}
     <div class="empty" in:fade={{ duration: 120 }}>
-      <span class="face">🕰️</span>
+      <span class="face"><Clock size={40} /></span>
       <p>Nothing scheduled — add a nightly backup or a friendly hourly broadcast!</p>
     </div>
   {:else}
@@ -244,8 +245,12 @@
           </span>
           <span class="row-actions">
             <Button variant="soft" onclick={() => runNow(task.id)}>Run now</Button>
-            <Button variant="ghost" onclick={() => startEdit(task)}>✏️</Button>
-            <Button variant="ghost" onclick={() => removeTask(task.id)}>🗑</Button>
+            <Button variant="ghost" square onclick={() => startEdit(task)}
+              ><Pencil size={14} /></Button
+            >
+            <Button variant="ghost" square onclick={() => removeTask(task.id)}
+              ><Trash2 size={14} /></Button
+            >
           </span>
         </li>
       {/each}

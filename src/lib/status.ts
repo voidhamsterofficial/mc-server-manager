@@ -1,11 +1,14 @@
 // Shared presentation metadata for server statuses (single source of truth
 // for status colors, labels, and mood).
 
+import { Rocket, Sparkles, Hourglass, Moon, Bomb } from "@lucide/svelte";
+import type { Component } from "svelte";
 import type { ServerStatus } from "./api";
 
 export interface StatusMeta {
   label: string;
-  emoji: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  icon: Component<any>;
   colorVar: string;
   softVar: string;
   pulsing: boolean;
@@ -14,35 +17,35 @@ export interface StatusMeta {
 export const STATUS_META: Record<ServerStatus, StatusMeta> = {
   starting: {
     label: "Starting",
-    emoji: "🐣",
+    icon: Rocket,
     colorVar: "--peach",
     softVar: "--peach-soft",
     pulsing: true,
   },
   running: {
     label: "Running",
-    emoji: "✨",
+    icon: Sparkles,
     colorVar: "--mint",
     softVar: "--mint-soft",
     pulsing: false,
   },
   stopping: {
     label: "Stopping",
-    emoji: "🌙",
+    icon: Hourglass,
     colorVar: "--peach",
     softVar: "--peach-soft",
     pulsing: true,
   },
   stopped: {
     label: "Stopped",
-    emoji: "💤",
+    icon: Moon,
     colorVar: "--lavender",
     softVar: "--lavender-soft",
     pulsing: false,
   },
   crashed: {
     label: "Crashed",
-    emoji: "💥",
+    icon: Bomb,
     colorVar: "--strawberry",
     softVar: "--strawberry-soft",
     pulsing: false,

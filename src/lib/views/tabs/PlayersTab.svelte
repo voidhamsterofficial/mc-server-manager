@@ -1,5 +1,16 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
+  import {
+    CircleCheckBig,
+    ShieldCheck,
+    Ban,
+    UserX,
+    Crown,
+    LogOut,
+    BookOpen,
+    Timer,
+    DoorOpen,
+  } from "@lucide/svelte";
   import { api, type RosterEntry, type ServerConfig } from "../../api";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
@@ -66,7 +77,7 @@
   function manualTarget(): string | null {
     const name = manualName.trim();
     if (name === "") {
-      toastsStore.show("Type a player name first ✍️");
+      toastsStore.show("Type a player name first");
       return null;
     }
     return name;
@@ -77,7 +88,7 @@
     if (name === null) {
       return;
     }
-    sendPlayerCommand(`${commandPrefix} ${commandArg(name)}`, `${label} ${name} ✨`);
+    sendPlayerCommand(`${commandPrefix} ${commandArg(name)}`, `${label} ${name}`);
   }
 
   /** Kick/ban with an optional reason gathered from a small dialog. Cancelling
@@ -102,11 +113,11 @@
   }
 
   function kickPlayer(name: string) {
-    return moderateWithReason("kick", name, "👢 Kick", `Kicked ${name} 👢`);
+    return moderateWithReason("kick", name, "Kick", `Kicked ${name}`);
   }
 
   function banPlayer(name: string) {
-    return moderateWithReason("ban", name, "🔨 Ban", `Banned ${name} 🔨`);
+    return moderateWithReason("ban", name, "Ban", `Banned ${name}`);
   }
 
   function runManualBan() {
@@ -126,7 +137,7 @@
       <div class="manual-row">
         <input type="text" bind:value={manualName} placeholder="Player name…" spellcheck="false" />
         <Button variant="soft" onclick={() => runManual(`${whitelistCommand} add`, "Whitelisted")}>
-          ✅ Whitelist
+          <CircleCheckBig size={15} /> Whitelist
         </Button>
         <Button
           variant="ghost"
@@ -135,19 +146,21 @@
           Remove
         </Button>
         {#if !isBedrock}
-          <Button variant="ghost" onclick={() => runManual("pardon", "Pardoned")}>🕊️ Pardon</Button>
-          <Button variant="danger" onclick={runManualBan}>🔨 Ban</Button>
+          <Button variant="ghost" onclick={() => runManual("pardon", "Pardoned")}>
+            <ShieldCheck size={15} /> Pardon
+          </Button>
+          <Button variant="danger" onclick={runManualBan}><Ban size={15} /> Ban</Button>
         {/if}
       </div>
     </div>
   {:else}
-    <p class="offline-note">Player management needs the server running 🌙</p>
+    <p class="offline-note">Player management needs the server running</p>
   {/if}
 
   {#if canCommand && players.length === 0}
     <div class="empty" in:fade={{ duration: 120 }}>
-      <span class="face">🐑</span>
-      <p>No players online right now — the sheep have the place to themselves.</p>
+      <span class="face"><UserX size={40} /></span>
+      <p>No players online right now.</p>
     </div>
   {:else if canCommand}
     <ul class="player-list">
@@ -167,9 +180,9 @@
           <span class="player-actions">
             <Button
               variant="soft"
-              onclick={() => sendPlayerCommand(`op ${commandArg(player)}`, `Opped ${player} 👑`)}
+              onclick={() => sendPlayerCommand(`op ${commandArg(player)}`, `Opped ${player}`)}
             >
-              👑 Op
+              <Crown size={15} /> Op
             </Button>
             <Button
               variant="ghost"
@@ -178,9 +191,13 @@
             >
               De-op
             </Button>
-            <Button variant="danger" onclick={() => kickPlayer(player)}>👢 Kick</Button>
+            <Button variant="danger" onclick={() => kickPlayer(player)}>
+              <LogOut size={15} /> Kick
+            </Button>
             {#if !isBedrock}
-              <Button variant="danger" onclick={() => banPlayer(player)}>🔨 Ban</Button>
+              <Button variant="danger" onclick={() => banPlayer(player)}>
+                <Ban size={15} /> Ban
+              </Button>
             {/if}
           </span>
         </li>
@@ -191,7 +208,7 @@
   <div class="history">
     <button class="history-toggle" onclick={() => (historyOpen = !historyOpen)}>
       <span class="chevron" class:open={historyOpen}>▸</span>
-      📖 Player history
+      <BookOpen size={16} /> Player history
       {#if historyOpen && roster.length > 0}
         <span class="count">{roster.length}</span>
       {/if}
@@ -201,7 +218,7 @@
       <div class="history-body" in:fade={{ duration: 120 }}>
         <!-- History stays last: it's reference material, not a daily control. -->
         {#if roster.length === 0}
-          <p class="history-empty">No one has visited this server yet 🌱</p>
+          <p class="history-empty">No one has visited this server yet.</p>
         {:else}
           <ul class="history-list">
             {#each roster as entry (entry.name)}
@@ -218,16 +235,20 @@
                   />
                   <span class="entry-name">{entry.name}</span>
                   {#if entry.online}
-                    <span class="badge online">🟢 Online</span>
+                    <span class="badge online">Online</span>
                   {/if}
                   {#if entry.banned}
-                    <span class="badge banned">🔨 Banned</span>
+                    <span class="badge banned"><Ban size={11} /> Banned</span>
                   {/if}
                   <span class="entry-stats">
-                    ⏱ {formatUptime(entry.totalPlaySeconds)}
-                    · 🚪 {entry.joinCount} join{entry.joinCount === 1 ? "" : "s"}
+                    <Timer size={12} /> {formatUptime(entry.totalPlaySeconds)}
+                    · <DoorOpen size={12} /> {entry.joinCount} join{entry.joinCount === 1
+                      ? ""
+                      : "s"}
                     {#if entry.kickCount > 0}
-                      · 👢 {entry.kickCount} kick{entry.kickCount === 1 ? "" : "s"}
+                      · <LogOut size={12} /> {entry.kickCount} kick{entry.kickCount === 1
+                        ? ""
+                        : "s"}
                     {/if}
                   </span>
                 </button>
@@ -237,9 +258,9 @@
                     disabled={!canCommand}
                     title={canCommand ? "" : "Start the server to pardon"}
                     onclick={() =>
-                      sendPlayerCommand(`pardon ${commandArg(entry.name)}`, `Pardoned ${entry.name} 🕊️`)}
+                      sendPlayerCommand(`pardon ${commandArg(entry.name)}`, `Pardoned ${entry.name}`)}
                   >
-                    🕊️ Pardon
+                    <ShieldCheck size={14} /> Pardon
                   </Button>
                 {/if}
               </li>
@@ -279,8 +300,8 @@
   }
 
   .face {
-    font-size: 2.6rem;
     display: inline-block;
+    color: var(--muted);
     animation: sway 3s ease-in-out infinite;
   }
 
@@ -463,6 +484,9 @@
   }
 
   .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
     font-size: 0.72rem;
     font-weight: 700;
     border-radius: var(--radius-sm);

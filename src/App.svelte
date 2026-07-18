@@ -1,5 +1,20 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import {
+    Monitor,
+    Play,
+    RefreshCw,
+    Square,
+    Skull,
+    Archive,
+    FolderOpen,
+    Trash2,
+    Plus,
+    FolderInput,
+    BookOpen,
+    Settings,
+    Coffee,
+  } from "@lucide/svelte";
   import Dashboard from "./lib/views/Dashboard.svelte";
   import ServerDetail from "./lib/views/ServerDetail.svelte";
   import AppSettings from "./lib/views/AppSettings.svelte";
@@ -110,9 +125,7 @@
       }
     }
     if (succeeded > 0) {
-      toastsStore.success(
-        `${verb} ${succeeded} server${succeeded === 1 ? "" : "s"} ✔`,
-      );
+      toastsStore.success(`${verb} ${succeeded} server${succeeded === 1 ? "" : "s"}`);
     }
     bulkBusy = false;
   }
@@ -158,7 +171,7 @@
       body:
         "This permanently deletes the server's folder — world, configs, plugins and all — " +
         "along with its player history and scheduled tasks. This can't be undone.",
-      confirmLabel: "🗑 Delete forever",
+      confirmLabel: "Delete forever",
       variant: "danger",
     });
     if (!confirmed) {
@@ -170,7 +183,7 @@
     if (route.view === "server" && route.serverId === server.id) {
       route = { view: "home" };
     }
-    await runWithToast(() => api.deleteServer(server.id), `Deleted "${server.name}" 🗑️`);
+    await runWithToast(() => api.deleteServer(server.id), `Deleted "${server.name}"`);
     portForwardStore.clear(server.id);
     await serversStore.refresh();
   }
@@ -182,7 +195,7 @@
     const entries: MenuEntry[] = [
       {
         label: "Open",
-        emoji: "🖥",
+        icon: Monitor,
         action: () => (route = { view: "server", serverId: server.id }),
       },
       "separator",
@@ -191,24 +204,27 @@
     if (canStart) {
       entries.push({
         label: "Start",
-        emoji: "▶",
+        icon: Play,
+        tone: "success",
         action: () => runWithToast(() => api.startServer(server.id)),
       });
     } else {
       entries.push(
         {
           label: "Restart",
-          emoji: "🔄",
+          icon: RefreshCw,
+          tone: "info",
           action: () => runWithToast(() => api.restartServer(server.id)),
         },
         {
           label: "Stop",
-          emoji: "⏹",
+          icon: Square,
+          tone: "warning",
           action: () => runWithToast(() => api.stopServer(server.id)),
         },
         {
           label: "Kill",
-          emoji: "☠",
+          icon: Skull,
           danger: true,
           action: () => runWithToast(() => api.killServer(server.id)),
         },
@@ -218,20 +234,21 @@
     entries.push(
       {
         label: "Back up now",
-        emoji: "🎁",
+        icon: Archive,
+        tone: "success",
         action: () =>
-          runWithToast(() => api.createBackup(server.id), `Backed up "${server.name}" 🎁`),
+          runWithToast(() => api.createBackup(server.id), `Backed up "${server.name}"`),
       },
       {
         label: "Open folder",
-        emoji: "📂",
+        icon: FolderOpen,
         disabled: server.dir === "",
         action: () => runWithToast(() => openPath(server.dir)),
       },
       "separator",
       {
         label: "Delete server",
-        emoji: "🗑",
+        icon: Trash2,
         danger: true,
         // The backend refuses to delete a running server; stop it first.
         disabled: !canStart,
@@ -243,20 +260,21 @@
 
   function appMenuEntries(): MenuEntry[] {
     return [
-      { label: "New server", emoji: "➕", action: () => (wizardOpen = true) },
-      { label: "Import server…", emoji: "📥", action: () => (importOpen = true) },
+      { label: "New server", icon: Plus, tone: "success", action: () => (wizardOpen = true) },
+      { label: "Import server…", icon: FolderInput, tone: "info", action: () => (importOpen = true) },
       {
         label: "Refresh",
-        emoji: "🔄",
+        icon: RefreshCw,
+        tone: "info",
         action: () => runWithToast(() => serversStore.refresh()),
       },
       "separator",
-      { label: "Start all", emoji: "▶", action: startAll },
-      { label: "Stop all", emoji: "⏹", action: stopAll },
-      { label: "Back up all", emoji: "🎁", action: backupAll },
+      { label: "Start all", icon: Play, tone: "success", action: startAll },
+      { label: "Stop all", icon: Square, tone: "warning", action: stopAll },
+      { label: "Back up all", icon: Archive, tone: "success", action: backupAll },
       "separator",
-      { label: "Docs", emoji: "📖", action: () => (route = { view: "docs" }) },
-      { label: "Settings", emoji: "⚙", action: () => (route = { view: "settings" }) },
+      { label: "Docs", icon: BookOpen, action: () => (route = { view: "docs" }) },
+      { label: "Settings", icon: Settings, action: () => (route = { view: "settings" }) },
     ];
   }
 
@@ -287,10 +305,10 @@
         serversStore.setStatus(event.serverId, event.status);
 
         if (previousStatus === "starting" && event.status === "running") {
-          toastsStore.success("Server is up — happy crafting! 🎉");
+          toastsStore.success("Server is up — happy crafting!");
         }
         if (event.status === "crashed") {
-          toastsStore.error("Server crashed 💔 Check the console for details.");
+          toastsStore.error("Server crashed — check the console for details.");
         }
         if (event.status === "stopped" || event.status === "crashed") {
           statsStore.clear(event.serverId);
@@ -338,25 +356,33 @@
       class:active={route.view === "docs"}
       onclick={() => (route = { view: "docs" })}
     >
-      📖 <span>Docs</span>
+      <BookOpen size={16} /> <span>Docs</span>
     </button>
     <button
       class="settings-item"
       class:active={route.view === "settings"}
       onclick={() => (route = { view: "settings" })}
     >
-      ⚙️ <span>Settings</span>
+      <Settings size={16} /> <span>Settings</span>
     </button>
   </aside>
 
   <div class="content">
     <header class="bulkbar">
-      <Button onclick={() => (wizardOpen = true)}>＋ New server</Button>
-      <Button variant="soft" onclick={() => (importOpen = true)}>📥 Import</Button>
+      <Button onclick={() => (wizardOpen = true)}><Plus size={15} /> New server</Button>
+      <Button variant="soft" onclick={() => (importOpen = true)}>
+        <FolderInput size={15} /> Import
+      </Button>
       <span class="bulk-divider"></span>
-      <Button variant="soft" disabled={bulkBusy} onclick={startAll}>▶ Start all</Button>
-      <Button variant="danger" disabled={bulkBusy} onclick={stopAll}>⏹ Stop all</Button>
-      <Button variant="ghost" disabled={bulkBusy} onclick={backupAll}>🎁 Backup all</Button>
+      <Button variant="soft" disabled={bulkBusy} onclick={startAll}>
+        <Play size={15} /> Start all
+      </Button>
+      <Button variant="danger" disabled={bulkBusy} onclick={stopAll}>
+        <Square size={15} /> Stop all
+      </Button>
+      <Button variant="ghost" disabled={bulkBusy} onclick={backupAll}>
+        <Archive size={15} /> Backup all
+      </Button>
       <span class="bulk-status">
         {runningCount}/{serversStore.servers.length} running
       </span>
@@ -382,7 +408,7 @@
 
 {#if javaDownload}
   <div class="java-pill" transition:fade={{ duration: 120 }}>
-    <span class="java-cup">☕</span>
+    <span class="java-cup"><Coffee size={15} /></span>
     Downloading Java… {javaDownloadText}
   </div>
 {/if}

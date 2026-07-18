@@ -1,18 +1,20 @@
 <script lang="ts">
   import { fly } from "svelte/transition";
+  import { CircleCheckBig, OctagonAlert, Info } from "@lucide/svelte";
   import { toastsStore } from "../stores/toasts.svelte";
 
-  const KIND_EMOJI = { success: "🎉", error: "😿", info: "💡" } as const;
+  const KIND_ICON = { success: CircleCheckBig, error: OctagonAlert, info: Info } as const;
 </script>
 
 <div class="stack" aria-live="polite">
   {#each toastsStore.toasts as toast (toast.id)}
+    {@const Icon = KIND_ICON[toast.kind]}
     <button
       class="toast {toast.kind}"
       transition:fly={{ y: 8, duration: 150 }}
       onclick={() => toastsStore.dismiss(toast.id)}
     >
-      <span class="emoji">{KIND_EMOJI[toast.kind]}</span>
+      <span class="icon"><Icon size={18} /></span>
       {toast.message}
     </button>
   {/each}
@@ -55,7 +57,16 @@
     border-color: var(--strawberry);
   }
 
-  .emoji {
-    font-size: 1.1rem;
+  .icon {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+
+  .toast.success .icon {
+    color: var(--mint);
+  }
+
+  .toast.error .icon {
+    color: var(--strawberry);
   }
 </style>

@@ -1,5 +1,21 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
+  import type { Component } from "svelte";
+  import {
+    Sprout,
+    Blocks,
+    Coffee,
+    Puzzle,
+    Users,
+    Terminal,
+    Folder,
+    House,
+    Globe,
+    Archive,
+    Clock,
+    LifeBuoy,
+    BookOpen,
+  } from "@lucide/svelte";
 
   interface Props {
     /** Navigate to another app page — docs links are real links. */
@@ -17,7 +33,8 @@
 
   interface Topic {
     id: string;
-    emoji: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    icon: Component<any>;
     title: string;
     paragraphs: Segment[][];
   }
@@ -25,14 +42,14 @@
   const TOPICS: Topic[] = [
     {
       id: "getting-started",
-      emoji: "🌱",
+      icon: Sprout,
       title: "Getting started",
       paragraphs: [
         [
           { text: "Create your first server from the " },
           { text: "dashboard", link: { kind: "view", view: "home" } },
           {
-            text: " with the ＋ New server button. Pick your software (Vanilla, Paper, Fabric, a proxy, …), then a version, port, and memory. Blockparty downloads everything — including ",
+            text: " with the + New server button. Pick your software (Vanilla, Paper, Fabric, a proxy, …), then a version, port, and memory. Blockparty downloads everything — including ",
           },
           { text: "the right Java", link: { kind: "topic", topicId: "java" } },
           { text: " — and you're ready to press Start." },
@@ -48,7 +65,7 @@
     },
     {
       id: "software",
-      emoji: "🧱",
+      icon: Blocks,
       title: "Server software",
       paragraphs: [
         [
@@ -70,12 +87,12 @@
     },
     {
       id: "java",
-      emoji: "☕",
+      icon: Coffee,
       title: "Java, automatically",
       paragraphs: [
         [
           {
-            text: "Every Minecraft version needs a matching Java. Blockparty detects the Javas installed on your machine and picks the right one; if none fits, it downloads a Temurin JRE by itself — you'll see a ☕ pill while that happens.",
+            text: "Every Minecraft version needs a matching Java. Blockparty detects the Javas installed on your machine and picks the right one; if none fits, it downloads a Temurin JRE by itself — you'll see a small progress pill while that happens.",
           },
         ],
         [
@@ -89,7 +106,7 @@
     },
     {
       id: "plugins",
-      emoji: "🧩",
+      icon: Puzzle,
       title: "Plugins",
       paragraphs: [
         [
@@ -111,7 +128,7 @@
     },
     {
       id: "players",
-      emoji: "🧑‍🤝‍🧑",
+      icon: Users,
       title: "Players & moderation",
       paragraphs: [
         [
@@ -133,12 +150,12 @@
     },
     {
       id: "console",
-      emoji: "📜",
+      icon: Terminal,
       title: "Console & commands",
       paragraphs: [
         [
           {
-            text: "The Console streams live output with Minecraft and ANSI colors, word wrap, and a 5000-line buffer. Type any command and press Send, or hit the ⚡ button for quick admin commands (list, save, time, weather, broadcast, gamemode, and more).",
+            text: "The Console streams live output with Minecraft and ANSI colors, word wrap, and a 5000-line buffer. Type any command and press Send, or hit the quick-commands button for shortcuts (list, save, time, weather, broadcast, gamemode, and more).",
           },
         ],
         [
@@ -150,7 +167,7 @@
     },
     {
       id: "files",
-      emoji: "📁",
+      icon: Folder,
       title: "Files & configs",
       paragraphs: [
         [
@@ -172,7 +189,7 @@
     },
     {
       id: "dashboard",
-      emoji: "🏡",
+      icon: House,
       title: "The dashboard",
       paragraphs: [
         [
@@ -187,7 +204,7 @@
     },
     {
       id: "internet",
-      emoji: "🌍",
+      icon: Globe,
       title: "Playing over the internet",
       paragraphs: [
         [
@@ -233,7 +250,7 @@
     },
     {
       id: "backups",
-      emoji: "🎁",
+      icon: Archive,
       title: "Backups & restores",
       paragraphs: [
         [
@@ -250,7 +267,7 @@
     },
     {
       id: "scheduler",
-      emoji: "⏰",
+      icon: Clock,
       title: "Scheduler",
       paragraphs: [
         [
@@ -267,7 +284,7 @@
     },
     {
       id: "recovery",
-      emoji: "🧯",
+      icon: LifeBuoy,
       title: "When things go wrong",
       paragraphs: [
         [
@@ -307,7 +324,7 @@
 </script>
 
 <section class="docs" in:fade={{ duration: 120 }}>
-  <h1>Docs 📖</h1>
+  <h1><BookOpen size={22} /> Docs</h1>
 
   <div class="layout">
     <nav class="topics">
@@ -317,14 +334,14 @@
           class:active={topic.id === activeTopicId}
           onclick={() => (activeTopicId = topic.id)}
         >
-          <span>{topic.emoji}</span>
+          <topic.icon size={16} />
           {topic.title}
         </button>
       {/each}
     </nav>
 
     <article class="content">
-      <h3>{activeTopic.emoji} {activeTopic.title}</h3>
+      <h3><activeTopic.icon size={18} /> {activeTopic.title}</h3>
       {#each activeTopic.paragraphs as paragraph, index (index)}
         <p>
           {#each paragraph as segment, segmentIndex (segmentIndex)}
@@ -353,6 +370,9 @@
   h1 {
     font-size: 1.5rem;
     margin: 0 0 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .layout {
@@ -406,6 +426,9 @@
   .content h3 {
     margin: 0 0 0.75rem;
     font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .content p {

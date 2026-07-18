@@ -6,6 +6,9 @@
     disabled?: boolean;
     title?: string;
     type?: "button" | "submit";
+    /** Icon-only buttons get equal padding on every side instead of the
+        text-shaped rectangle, so the icon isn't squeezed vertically. */
+    square?: boolean;
     onclick?: (event: MouseEvent) => void;
     children: Snippet;
   }
@@ -15,12 +18,13 @@
     disabled = false,
     title,
     type = "button",
+    square = false,
     onclick,
     children,
   }: Props = $props();
 </script>
 
-<button {type} class="btn {variant}" {disabled} {title} {onclick}>
+<button {type} class="btn {variant}" class:square {disabled} {title} {onclick}>
   {@render children()}
 </button>
 
@@ -54,16 +58,22 @@
     cursor: not-allowed;
   }
 
-  /* Filled buttons get a classic blocky bevel: light top edge, dark bottom
-     edge, chunky outline — feedback stays color-only. */
+  /* Filled buttons get a classic blocky bevel: light top+left edges, dark
+     bottom+right edges, chunky outline — feedback stays color-only. Without
+     the left/right insets the sides looked flat against the page, reading
+     as a missing/cut-off edge next to the shaded top and bottom. The outline
+     uses --border (grey) to match every other bordered element (inputs,
+     cards) instead of a one-off color. */
   .primary,
   .soft,
   .danger {
     border-radius: 8px;
     box-shadow:
       inset 0 2px 0 rgba(255, 255, 255, 0.25),
+      inset 2px 0 0 rgba(255, 255, 255, 0.25),
       inset 0 -3px 0 rgba(0, 0, 0, 0.18),
-      0 0 0 2px rgba(20, 12, 38, 0.25);
+      inset -2px 0 0 rgba(0, 0, 0, 0.18),
+      0 0 0 2px var(--border);
   }
 
   .primary {
@@ -101,5 +111,9 @@
   .ghost:hover:not(:disabled) {
     background: var(--surface-2);
     color: var(--text);
+  }
+
+  .square {
+    padding: 0.65em;
   }
 </style>

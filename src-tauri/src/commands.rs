@@ -14,6 +14,7 @@ use crate::error::{AppError, AppResult};
 use crate::files;
 use crate::installers::{self, vanilla};
 use crate::java::{self, JavaInstall};
+use crate::mods;
 use crate::plugins;
 use crate::portforward;
 use crate::process;
@@ -22,6 +23,7 @@ use crate::roster::{self, RosterEntry};
 use crate::scheduler::{self, ScheduledTask};
 use crate::servers::{self, CreateServerRequest, Loader, ServerConfig, ServerStatus};
 use crate::service;
+use crate::sources;
 use crate::state::AppState;
 
 /// The subset of app-wide state exposed to the frontend as "Settings".
@@ -1022,6 +1024,15 @@ fn plugin_facet(config: &ServerConfig) -> AppResult<&'static str> {
     })
 }
 
+/// The Modrinth loader facet for a mod-capable server, or an error for
+/// software that doesn't take mods.
+fn mod_facet(config: &ServerConfig) -> AppResult<&'static str> {
+    config
+        .loader
+        .mod_facet()
+        .ok_or_else(|| AppError::InvalidInput("this server type does not support mods".to_string()))
+}
+
 /// Empty for proxies (whose plugins aren't tagged by Minecraft version).
 fn plugin_mc_version(config: &ServerConfig) -> &str {
     if config.loader.is_proxy() {
@@ -1029,6 +1040,50 @@ fn plugin_mc_version(config: &ServerConfig) -> &str {
     } else {
         &config.mc_version
     }
+}
+
+/// Key in `kv_settings` for the user-supplied CurseForge API key.
+const CURSEFORGE_API_KEY_KV_KEY: &str = "curseforge_api_key";
+
+async fn curseforge_api_key(state: &AppState) -> AppResult<Option<String>> {
+    let db = state.db.lock().await;
+    db.get_kv(CURSEFORGE_API_KEY_KV_KEY)
+}
+
+#[tauri::command]
+pub async fn get_curseforge_api_key(state: State<'_, AppState>) -> AppResult<Option<String>> {
+    curseforge_api_key(&state).await
+}
+
+#[tauri::command]
+pub async fn set_curseforge_api_key(state: State<'_, AppState>, api_key: String) -> AppResult<()> {
+    let db = state.db.lock().await;
+    db.set_kv(CURSEFORGE_API_KEY_KV_KEY, api_key.trim())
+}
+
+/// Records provenance for a freshly installed/updated addon, so a later
+/// update check knows what to compare against.
+async fn record_addon_install(
+    state: &AppState,
+    server_id: &str,
+    file_name: &str,
+    project_id: &str,
+    ctx: sources::MarketplaceContext<'_>,
+    version: &sources::AddonVersion,
+) -> AppResult<()> {
+    let record = db::PluginInstallRecord {
+        server_id: server_id.to_string(),
+        file_name: file_name.to_string(),
+        source: ctx.source.as_db_str().to_string(),
+        project_id: Some(project_id.to_string()),
+        version_id: Some(version.version_id.clone()),
+        version_number: Some(version.version_number.clone()),
+        mc_version: Some(ctx.mc_version.to_string()),
+        loader_facet: Some(ctx.loader_facet.to_string()),
+        installed_at_unix: servers::current_unix_time(),
+    };
+    let db = state.db.lock().await;
+    db.record_plugin_install(&record)
 }
 
 #[tauri::command]
@@ -1061,7 +1116,9 @@ pub async fn delete_plugin(
     file_name: String,
 ) -> AppResult<()> {
     let config = service::find_config(&app, &server_id).await?;
-    plugins::delete(&state.server_dir(&config), &file_name)
+    plugins::delete(&state.server_dir(&config), &file_name)?;
+    let db = state.db.lock().await;
+    db.remove_plugin_install(&server_id, &file_name)
 }
 
 #[tauri::command]
@@ -1069,11 +1126,17 @@ pub async fn search_plugins(
     app: AppHandle,
     state: State<'_, AppState>,
     server_id: String,
+    source: sources::AddonSource,
     query: String,
-) -> AppResult<Vec<plugins::PluginSearchResult>> {
+) -> AppResult<Vec<sources::AddonSearchResult>> {
     let config = service::find_config(&app, &server_id).await?;
-    let facet = plugin_facet(&config)?;
-    plugins::search(&state.http, &query, facet, plugin_mc_version(&config)).await
+    let ctx = sources::MarketplaceContext {
+        source,
+        loader_facet: plugin_facet(&config)?,
+        mc_version: plugin_mc_version(&config),
+        curseforge_api_key: None,
+    };
+    plugins::search(&state.http, ctx, &query).await
 }
 
 #[tauri::command]
@@ -1081,23 +1144,257 @@ pub async fn install_plugin(
     app: AppHandle,
     state: State<'_, AppState>,
     server_id: String,
+    source: sources::AddonSource,
     project_id: String,
 ) -> AppResult<plugins::InstalledPlugin> {
     let config = service::find_config(&app, &server_id).await?;
-    let facet = plugin_facet(&config)?;
+    let ctx = sources::MarketplaceContext {
+        source,
+        loader_facet: plugin_facet(&config)?,
+        mc_version: plugin_mc_version(&config),
+        curseforge_api_key: None,
+    };
     let server_dir = state.server_dir(&config);
-    let mc_version = plugin_mc_version(&config).to_string();
     let report_progress =
         installers::progress_event_reporter(app, config.id.clone(), "download-plugin");
-    plugins::install_from_modrinth(
-        &state.http,
-        &server_dir,
+    let outcome =
+        plugins::install(&state.http, &server_dir, ctx, &project_id, &report_progress).await?;
+    record_addon_install(
+        &state,
+        &server_id,
+        &outcome.addon.file_name,
         &project_id,
-        facet,
-        &mc_version,
-        &report_progress,
+        ctx,
+        &outcome.version,
     )
-    .await
+    .await?;
+    Ok(outcome.addon)
+}
+
+#[tauri::command]
+pub async fn check_plugin_updates(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+) -> AppResult<Vec<plugins::PluginUpdateStatus>> {
+    let config = service::find_config(&app, &server_id).await?;
+    let server_dir = state.server_dir(&config);
+    let records = {
+        let db = state.db.lock().await;
+        db.list_plugin_installs(&server_id)?
+    };
+    plugins::check_for_updates(&state.http, &server_dir, &records).await
+}
+
+#[tauri::command]
+pub async fn update_plugin(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    file_name: String,
+) -> AppResult<plugins::InstalledPlugin> {
+    let record = {
+        let db = state.db.lock().await;
+        db.list_plugin_installs(&server_id)?
+            .into_iter()
+            .find(|record| record.file_name == file_name)
+            .ok_or_else(|| {
+                AppError::InvalidInput("no update provenance for this plugin".to_string())
+            })?
+    };
+    let source = sources::AddonSource::from_db_str(&record.source)
+        .ok_or_else(|| AppError::InvalidInput("unknown plugin source".to_string()))?;
+    let project_id = record.project_id.clone().ok_or_else(|| {
+        AppError::InvalidInput("no update provenance for this plugin".to_string())
+    })?;
+
+    let config = service::find_config(&app, &server_id).await?;
+    let ctx = sources::MarketplaceContext {
+        source,
+        loader_facet: plugin_facet(&config)?,
+        mc_version: plugin_mc_version(&config),
+        curseforge_api_key: None,
+    };
+    let server_dir = state.server_dir(&config);
+    let report_progress =
+        installers::progress_event_reporter(app, config.id.clone(), "download-plugin");
+    let outcome =
+        plugins::install(&state.http, &server_dir, ctx, &project_id, &report_progress).await?;
+
+    // The updated jar may have a different file name than the one it
+    // replaces (e.g. a version bump baked into the name) — drop the old one.
+    if outcome.addon.file_name != file_name {
+        plugins::delete(&server_dir, &file_name).ok();
+        let db = state.db.lock().await;
+        db.remove_plugin_install(&server_id, &file_name)?;
+    }
+    record_addon_install(
+        &state,
+        &server_id,
+        &outcome.addon.file_name,
+        &project_id,
+        ctx,
+        &outcome.version,
+    )
+    .await?;
+    Ok(outcome.addon)
+}
+
+#[tauri::command]
+pub async fn list_mods(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+) -> AppResult<Vec<mods::InstalledMod>> {
+    let config = service::find_config(&app, &server_id).await?;
+    mods::list_installed(&state.server_dir(&config))
+}
+
+#[tauri::command]
+pub async fn set_mod_enabled(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    file_name: String,
+    enabled: bool,
+) -> AppResult<String> {
+    let config = service::find_config(&app, &server_id).await?;
+    mods::set_enabled(&state.server_dir(&config), &file_name, enabled)
+}
+
+#[tauri::command]
+pub async fn delete_mod(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    file_name: String,
+) -> AppResult<()> {
+    let config = service::find_config(&app, &server_id).await?;
+    mods::delete(&state.server_dir(&config), &file_name)?;
+    let db = state.db.lock().await;
+    db.remove_plugin_install(&server_id, &file_name)
+}
+
+#[tauri::command]
+pub async fn search_mods(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    source: sources::AddonSource,
+    query: String,
+) -> AppResult<Vec<sources::AddonSearchResult>> {
+    let config = service::find_config(&app, &server_id).await?;
+    let api_key = curseforge_api_key(&state).await?;
+    let ctx = sources::MarketplaceContext {
+        source,
+        loader_facet: mod_facet(&config)?,
+        mc_version: &config.mc_version,
+        curseforge_api_key: api_key.as_deref(),
+    };
+    mods::search(&state.http, ctx, &query).await
+}
+
+#[tauri::command]
+pub async fn install_mod(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    source: sources::AddonSource,
+    project_id: String,
+) -> AppResult<mods::InstalledMod> {
+    let config = service::find_config(&app, &server_id).await?;
+    let api_key = curseforge_api_key(&state).await?;
+    let ctx = sources::MarketplaceContext {
+        source,
+        loader_facet: mod_facet(&config)?,
+        mc_version: &config.mc_version,
+        curseforge_api_key: api_key.as_deref(),
+    };
+    let server_dir = state.server_dir(&config);
+    let report_progress =
+        installers::progress_event_reporter(app, config.id.clone(), "download-mod");
+    let outcome =
+        mods::install(&state.http, &server_dir, ctx, &project_id, &report_progress).await?;
+    record_addon_install(
+        &state,
+        &server_id,
+        &outcome.addon.file_name,
+        &project_id,
+        ctx,
+        &outcome.version,
+    )
+    .await?;
+    Ok(outcome.addon)
+}
+
+#[tauri::command]
+pub async fn check_mod_updates(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+) -> AppResult<Vec<mods::ModUpdateStatus>> {
+    let config = service::find_config(&app, &server_id).await?;
+    let server_dir = state.server_dir(&config);
+    let api_key = curseforge_api_key(&state).await?;
+    let records = {
+        let db = state.db.lock().await;
+        db.list_plugin_installs(&server_id)?
+    };
+    mods::check_for_updates(&state.http, &server_dir, &records, api_key.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn update_mod(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    file_name: String,
+) -> AppResult<mods::InstalledMod> {
+    let record = {
+        let db = state.db.lock().await;
+        db.list_plugin_installs(&server_id)?
+            .into_iter()
+            .find(|record| record.file_name == file_name)
+            .ok_or_else(|| {
+                AppError::InvalidInput("no update provenance for this mod".to_string())
+            })?
+    };
+    let source = sources::AddonSource::from_db_str(&record.source)
+        .ok_or_else(|| AppError::InvalidInput("unknown mod source".to_string()))?;
+    let project_id = record
+        .project_id
+        .clone()
+        .ok_or_else(|| AppError::InvalidInput("no update provenance for this mod".to_string()))?;
+
+    let config = service::find_config(&app, &server_id).await?;
+    let api_key = curseforge_api_key(&state).await?;
+    let ctx = sources::MarketplaceContext {
+        source,
+        loader_facet: mod_facet(&config)?,
+        mc_version: &config.mc_version,
+        curseforge_api_key: api_key.as_deref(),
+    };
+    let server_dir = state.server_dir(&config);
+    let report_progress =
+        installers::progress_event_reporter(app, config.id.clone(), "download-mod");
+    let outcome =
+        mods::install(&state.http, &server_dir, ctx, &project_id, &report_progress).await?;
+
+    if outcome.addon.file_name != file_name {
+        mods::delete(&server_dir, &file_name).ok();
+        let db = state.db.lock().await;
+        db.remove_plugin_install(&server_id, &file_name)?;
+    }
+    record_addon_install(
+        &state,
+        &server_id,
+        &outcome.addon.file_name,
+        &project_id,
+        ctx,
+        &outcome.version,
+    )
+    .await?;
+    Ok(outcome.addon)
 }
 
 #[tauri::command]

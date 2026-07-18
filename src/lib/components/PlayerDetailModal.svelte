@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Ban, ShieldCheck, Crown, LogOut, MessageSquare } from "@lucide/svelte";
   import { api, type PlayerDetail } from "../api";
   import { toastsStore } from "../stores/toasts.svelte";
   import { formatDateTime, formatUptime } from "../format";
@@ -91,7 +92,7 @@
     if (!name) {
       return;
     }
-    runPlayerCommand(`pardon ${commandArg(name)}`, `Pardoned ${name} 🕊️`).then(reloadDetailSoon);
+    runPlayerCommand(`pardon ${commandArg(name)}`, `Pardoned ${name}`).then(reloadDetailSoon);
   }
 
   /** The server writes banned-players.json a moment after the command runs, so
@@ -122,15 +123,15 @@
       <div class="head-text">
         <h2 class="name">{detail.name}</h2>
         <div class="badges">
-          {#if detail.online}<span class="badge online">🟢 Online</span>{/if}
-          {#if detail.banned}<span class="badge banned">🔨 Banned</span>{/if}
+          {#if detail.online}<span class="badge online">Online</span>{/if}
+          {#if detail.banned}<span class="badge banned"><Ban size={12} /> Banned</span>{/if}
         </div>
       </div>
     </div>
 
     {#if detail.banned}
       <div class="ban-notice">
-        <span class="ban-label">🔨 Ban reason</span>
+        <span class="ban-label"><Ban size={12} /> Ban reason</span>
         <span class="ban-reason">{detail.banReason ?? "No reason recorded"}</span>
       </div>
     {/if}
@@ -158,15 +159,15 @@
           title={canCommand ? "" : "Start the server to run this"}
           onclick={pardon}
         >
-          🕊️ Pardon
+          <ShieldCheck size={15} /> Pardon
         </Button>
       {:else}
         <Button
           variant="danger"
           disabled={!canCommand}
-          onclick={() => moderateWithReason("ban", "🔨 Ban", `Banned ${detail?.name} 🔨`)}
+          onclick={() => moderateWithReason("ban", "Ban", `Banned ${detail?.name}`)}
         >
-          🔨 Ban
+          <Ban size={15} /> Ban
         </Button>
       {/if}
       {#if detail.online}
@@ -174,21 +175,21 @@
           variant="soft"
           disabled={!canCommand}
           onclick={() =>
-            runPlayerCommand(`op ${commandArg(detail?.name ?? "")}`, `Opped ${detail?.name} 👑`)}
+            runPlayerCommand(`op ${commandArg(detail?.name ?? "")}`, `Opped ${detail?.name}`)}
         >
-          👑 Op
+          <Crown size={15} /> Op
         </Button>
         <Button
           variant="danger"
           disabled={!canCommand}
-          onclick={() => moderateWithReason("kick", "👢 Kick", `Kicked ${detail?.name} 👢`)}
+          onclick={() => moderateWithReason("kick", "Kick", `Kicked ${detail?.name}`)}
         >
-          👢 Kick
+          <LogOut size={15} /> Kick
         </Button>
       {/if}
     </div>
 
-    <h3 class="chat-title">💬 Recent chat</h3>
+    <h3 class="chat-title"><MessageSquare size={16} /> Recent chat</h3>
     {#if detail.recentChat.length === 0}
       <p class="muted">Nothing said yet.</p>
     {:else}
@@ -234,6 +235,9 @@
   }
 
   .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
     font-size: 0.72rem;
     font-weight: 700;
     border-radius: var(--radius-sm);
@@ -261,6 +265,9 @@
   }
 
   .ban-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
     font-size: 0.72rem;
     font-weight: 700;
     color: var(--strawberry);
@@ -305,6 +312,9 @@
   }
 
   .chat-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
     margin: 0 0 0.5rem;
     font-size: 0.95rem;
   }

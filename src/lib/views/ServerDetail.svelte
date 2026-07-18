@@ -1,6 +1,23 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
-  import { api, supportsPlugins, type ServerConfig } from "../api";
+  import {
+    House,
+    Terminal,
+    Users,
+    Puzzle,
+    Folder,
+    Settings,
+    Archive,
+    Clock,
+    Play,
+    RefreshCw,
+    Square,
+    Skull,
+    Trash2,
+    Blocks,
+    Save,
+  } from "@lucide/svelte";
+  import { api, supportsMods, supportsPlugins, type ServerConfig } from "../api";
   import { serversStore } from "../stores/servers.svelte";
   import { toastsStore } from "../stores/toasts.svelte";
   import StatusBlob from "../components/StatusBlob.svelte";
@@ -10,6 +27,7 @@
   import ConsoleTab from "./tabs/ConsoleTab.svelte";
   import PlayersTab from "./tabs/PlayersTab.svelte";
   import PluginsTab from "./tabs/PluginsTab.svelte";
+  import ModsTab from "./tabs/ModsTab.svelte";
   import SettingsTab from "./tabs/SettingsTab.svelte";
   import BackupsTab from "./tabs/BackupsTab.svelte";
   import SchedulerTab from "./tabs/SchedulerTab.svelte";
@@ -23,21 +41,26 @@
   let { server, onback }: Props = $props();
 
   const ALL_TABS = [
-    { id: "dashboard", label: "Dashboard", emoji: "🏡" },
-    { id: "console", label: "Console", emoji: "📜" },
-    { id: "players", label: "Players", emoji: "🧑‍🤝‍🧑" },
-    { id: "plugins", label: "Plugins", emoji: "🧩" },
-    { id: "files", label: "Files", emoji: "📁" },
-    { id: "settings", label: "Settings", emoji: "🛠️" },
-    { id: "backups", label: "Backups", emoji: "🎁" },
-    { id: "scheduler", label: "Scheduler", emoji: "⏰" },
+    { id: "dashboard", label: "Dashboard", icon: House },
+    { id: "console", label: "Console", icon: Terminal },
+    { id: "players", label: "Players", icon: Users },
+    { id: "plugins", label: "Plugins", icon: Puzzle },
+    { id: "mods", label: "Mods", icon: Blocks },
+    { id: "files", label: "Files", icon: Folder },
+    { id: "settings", label: "Settings", icon: Settings },
+    { id: "backups", label: "Backups", icon: Archive },
+    { id: "scheduler", label: "Scheduler", icon: Clock },
   ] as const;
 
   type TabId = (typeof ALL_TABS)[number]["id"];
 
-  // The Plugins tab only appears for plugin-capable software.
+  // The Plugins/Mods tabs only appear for software that supports them.
   const tabs = $derived(
-    ALL_TABS.filter((tab) => tab.id !== "plugins" || supportsPlugins(server.loader)),
+    ALL_TABS.filter((tab) => {
+      if (tab.id === "plugins") return supportsPlugins(server.loader);
+      if (tab.id === "mods") return supportsMods(server.loader);
+      return true;
+    }),
   );
 
   let activeTab = $state<TabId>("dashboard");
@@ -75,7 +98,7 @@
       // or the derived `server` becomes null while we still render it.
       onback();
       await serversStore.refresh();
-      toastsStore.show(`"${deletedName}" was deleted 🗑️`);
+      toastsStore.show(`"${deletedName}" was deleted`);
     });
   }
 </script>
@@ -86,15 +109,15 @@
       <h1>{server.name}</h1>
       <div class="meta">
         <StatusBlob {status} showLabel />
-        <Chip>🧱 {server.mcVersion}</Chip>
+        <Chip tone="info"><Blocks size={13} /> {server.mcVersion}</Chip>
         <Chip>{server.loader}</Chip>
-        <Chip>💾 {server.memoryMb} MB</Chip>
+        <Chip tone="warning"><Save size={13} /> {server.memoryMb} MB</Chip>
       </div>
     </div>
     <div class="actions">
       {#if canStart}
         <Button disabled={busy} onclick={() => run(() => api.startServer(server.id))}>
-          ▶ Start
+          <Play size={15} /> Start
         </Button>
       {/if}
       {#if canStop}
@@ -103,10 +126,10 @@
           disabled={busy}
           onclick={() => run(() => api.restartServer(server.id))}
         >
-          🔄 Restart
+          <RefreshCw size={15} /> Restart
         </Button>
         <Button variant="danger" disabled={busy} onclick={() => run(() => api.stopServer(server.id))}>
-          ⏹ Stop
+          <Square size={15} /> Stop
         </Button>
         <Button
           variant="ghost"
@@ -114,7 +137,7 @@
           title="Force-kill the process"
           onclick={() => run(() => api.killServer(server.id))}
         >
-          ☠ Kill
+          <Skull size={15} /> Kill
         </Button>
       {/if}
       {#if canStart}
@@ -122,7 +145,9 @@
           <Button variant="danger" disabled={busy} onclick={deleteServer}>Really delete?</Button>
           <Button variant="ghost" onclick={() => (confirmingDelete = false)}>Keep it</Button>
         {:else}
-          <Button variant="ghost" onclick={() => (confirmingDelete = true)}>🗑 Delete</Button>
+          <Button variant="ghost" onclick={() => (confirmingDelete = true)}>
+            <Trash2 size={15} /> Delete
+          </Button>
         {/if}
       {/if}
     </div>
@@ -135,7 +160,7 @@
         class:active={activeTab === tab.id}
         onclick={() => (activeTab = tab.id)}
       >
-        <span class="tab-emoji">{tab.emoji}</span>
+        <tab.icon size={16} />
         {tab.label}
       </button>
     {/each}
@@ -154,6 +179,8 @@
         <PlayersTab {server} />
       {:else if activeTab === "plugins"}
         <PluginsTab {server} />
+      {:else if activeTab === "mods"}
+        <ModsTab {server} />
       {:else if activeTab === "files"}
         <FilesTab {server} />
       {:else if activeTab === "settings"}
@@ -245,11 +272,6 @@
   .tab.active {
     background: var(--accent-soft);
     color: var(--accent-strong);
-  }
-
-  .tab-emoji {
-    font-size: 1rem;
-    line-height: 1;
   }
 
   .tab-content {

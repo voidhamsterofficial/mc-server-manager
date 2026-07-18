@@ -38,6 +38,14 @@ export function supportsPlugins(loader: Loader): boolean {
   return PLUGIN_LOADERS.includes(loader);
 }
 
+/** Loaders that load `.jar` mods (Forge family and mod-capable hybrids).
+ *  Mirrors `Loader::mod_facet` on the backend. */
+export const MOD_LOADERS: Loader[] = ["forge", "neoforge", "fabric", "quilt", "mohist", "arclight"];
+
+export function supportsMods(loader: Loader): boolean {
+  return MOD_LOADERS.includes(loader);
+}
+
 export type ServerStatus = "stopped" | "starting" | "running" | "stopping" | "crashed";
 
 export interface ServerConfig {
@@ -186,7 +194,14 @@ export interface InstalledPlugin {
   sizeBytes: number;
 }
 
-export interface PluginSearchResult {
+/** Mods share the same on-disk shape as plugins (a `.jar` in a folder). */
+export type InstalledMod = InstalledPlugin;
+
+/** Marketplace an addon (plugin or mod) is browsed from or installed via. */
+export type AddonSource = "modrinth" | "spigot" | "curseforge";
+
+export interface AddonSearchResult {
+  source: AddonSource;
   projectId: string;
   slug: string;
   title: string;
@@ -194,6 +209,16 @@ export interface PluginSearchResult {
   downloads: number;
   iconUrl: string | null;
   author: string;
+}
+
+export interface AddonUpdateStatus {
+  fileName: string;
+  displayName: string;
+  source: AddonSource;
+  projectId: string;
+  currentVersion: string | null;
+  latestVersion: string | null;
+  hasUpdate: boolean;
 }
 
 export interface DirEntry {
@@ -277,10 +302,30 @@ export const api = {
     invoke<string>("set_plugin_enabled", { serverId, fileName, enabled }),
   deletePlugin: (serverId: string, fileName: string) =>
     invoke<void>("delete_plugin", { serverId, fileName }),
-  searchPlugins: (serverId: string, query: string) =>
-    invoke<PluginSearchResult[]>("search_plugins", { serverId, query }),
-  installPlugin: (serverId: string, projectId: string) =>
-    invoke<InstalledPlugin>("install_plugin", { serverId, projectId }),
+  searchPlugins: (serverId: string, source: AddonSource, query: string) =>
+    invoke<AddonSearchResult[]>("search_plugins", { serverId, source, query }),
+  installPlugin: (serverId: string, source: AddonSource, projectId: string) =>
+    invoke<InstalledPlugin>("install_plugin", { serverId, source, projectId }),
+  checkPluginUpdates: (serverId: string) =>
+    invoke<AddonUpdateStatus[]>("check_plugin_updates", { serverId }),
+  updatePlugin: (serverId: string, fileName: string) =>
+    invoke<InstalledPlugin>("update_plugin", { serverId, fileName }),
+  listMods: (serverId: string) => invoke<InstalledMod[]>("list_mods", { serverId }),
+  setModEnabled: (serverId: string, fileName: string, enabled: boolean) =>
+    invoke<string>("set_mod_enabled", { serverId, fileName, enabled }),
+  deleteMod: (serverId: string, fileName: string) =>
+    invoke<void>("delete_mod", { serverId, fileName }),
+  searchMods: (serverId: string, source: AddonSource, query: string) =>
+    invoke<AddonSearchResult[]>("search_mods", { serverId, source, query }),
+  installMod: (serverId: string, source: AddonSource, projectId: string) =>
+    invoke<InstalledMod>("install_mod", { serverId, source, projectId }),
+  checkModUpdates: (serverId: string) =>
+    invoke<AddonUpdateStatus[]>("check_mod_updates", { serverId }),
+  updateMod: (serverId: string, fileName: string) =>
+    invoke<InstalledMod>("update_mod", { serverId, fileName }),
+  getCurseforgeApiKey: () => invoke<string | null>("get_curseforge_api_key"),
+  setCurseforgeApiKey: (apiKey: string) =>
+    invoke<void>("set_curseforge_api_key", { apiKey }),
   getServerProperties: (serverId: string) =>
     invoke<Property[]>("get_server_properties", { serverId }),
   saveServerProperties: (serverId: string, updates: Property[]) =>

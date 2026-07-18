@@ -62,6 +62,23 @@ impl Loader {
         };
         Some(facet)
     }
+
+    /// The Modrinth loader name used to filter compatible mods, or `None` for
+    /// software that doesn't take mod-loader mods (Bukkit-family, vanilla,
+    /// Bedrock, proxies). A `Some` value also means this server supports
+    /// installing mods at all.
+    pub fn mod_facet(self) -> Option<&'static str> {
+        let facet = match self {
+            Loader::Forge => "forge",
+            Loader::NeoForge => "neoforge",
+            Loader::Fabric => "fabric",
+            Loader::Quilt => "quilt",
+            // Hybrids also load Forge mods.
+            Loader::Mohist | Loader::Arclight => "forge",
+            _ => return None,
+        };
+        Some(facet)
+    }
 }
 
 /// Lifecycle state of a server process.

@@ -1,7 +1,7 @@
 {
   "name": "mc-server-manager",
   "private": true,
-  "version": "1.5.1",
+  "version": "1.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -24,6 +24,7 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
+    "@lucide/svelte": "^1.25.0",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2.5.4"

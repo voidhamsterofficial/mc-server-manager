@@ -4,6 +4,7 @@
   // buffer stays smooth without manual virtualization.
 
   import { onMount } from "svelte";
+  import { Copy, FileText, Terminal } from "@lucide/svelte";
   import type { ConsoleLine } from "../events";
   import { contextMenuStore, type MenuEntry } from "../stores/contextMenu.svelte";
   import { toastsStore } from "../stores/toasts.svelte";
@@ -36,15 +37,15 @@
     const entries: MenuEntry[] = [
       {
         label: "Copy selection",
-        emoji: "📋",
+        icon: Copy,
         disabled: selection === "",
-        action: () => copyText(selection, "Copied selection 📋"),
+        action: () => copyText(selection, "Copied selection"),
       },
       {
         label: "Copy all output",
-        emoji: "📄",
+        icon: FileText,
         disabled: lines.length === 0,
-        action: () => copyText(consoleText(), "Copied console output 📄"),
+        action: () => copyText(consoleText(), "Copied console output"),
       },
     ];
     contextMenuStore.show(event, entries);
@@ -98,7 +99,7 @@
   aria-label="Server console output"
 >
   {#if lines.length === 0}
-    <p class="empty">Console output will appear here… 🌱</p>
+    <p class="empty"><Terminal size={16} /> Console output will appear here…</p>
   {:else}
     {#each lines as line, index (index)}
       <div class="line {line.level}">
@@ -150,6 +151,10 @@
   }
 
   .empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
     color: #9a9aa2;
     text-align: center;
     margin-top: 2.5rem;

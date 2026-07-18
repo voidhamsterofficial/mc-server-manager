@@ -1,9 +1,18 @@
 // Controller for the app-wide custom context menu.
 
+import type { Component } from "svelte";
+
+/** Semantic icon color for a menu item — mirrors the app's badge palette so
+ *  menu icons carry the same at-a-glance meaning colorful emoji used to. */
+export type MenuTone = "success" | "warning" | "info";
+
 export interface MenuItem {
   label: string;
-  emoji?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  icon?: Component<any>;
+  /** Colors the icon strawberry-red; takes priority over `tone`. */
   danger?: boolean;
+  tone?: MenuTone;
   disabled?: boolean;
   action: () => void;
 }

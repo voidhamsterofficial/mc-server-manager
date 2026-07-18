@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
+  import { Blocks, Save, Users, Play, Square } from "@lucide/svelte";
   import { api, type ServerConfig } from "../api";
   import { serversStore } from "../stores/servers.svelte";
   import { toastsStore } from "../stores/toasts.svelte";
@@ -53,18 +54,22 @@
     <StatusBlob {status} showLabel />
   </div>
   <div class="chips">
-    <Chip>🧱 {server.mcVersion}</Chip>
+    <Chip tone="info"><Blocks size={13} /> {server.mcVersion}</Chip>
     <Chip>{server.loader}</Chip>
-    <Chip>💾 {server.memoryMb} MB</Chip>
+    <Chip tone="warning"><Save size={13} /> {server.memoryMb} MB</Chip>
     {#if status === "running"}
-      <Chip>👥 {players.length} online</Chip>
+      <Chip tone="success"><Users size={13} /> {players.length} online</Chip>
     {/if}
   </div>
   <div class="actions">
     {#if canStart}
-      <Button variant="soft" disabled={busy} onclick={togglePower}>▶ Start</Button>
+      <Button variant="soft" disabled={busy} onclick={togglePower}>
+        <Play size={15} /> Start
+      </Button>
     {:else if canStop}
-      <Button variant="danger" disabled={busy} onclick={togglePower}>⏹ Stop</Button>
+      <Button variant="danger" disabled={busy} onclick={togglePower}>
+        <Square size={15} /> Stop
+      </Button>
     {:else}
       <Button variant="ghost" disabled onclick={() => {}}>…</Button>
     {/if}

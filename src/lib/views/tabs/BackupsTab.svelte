@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
+  import { Folder, Gift, Archive, Undo2, Trash2 } from "@lucide/svelte";
   import { api, resolveBackupsDir, type BackupInfo, type ServerConfig } from "../../api";
   import { onBackupCreated } from "../../events";
   import { serversStore } from "../../stores/servers.svelte";
@@ -50,7 +51,7 @@
     working = true;
     try {
       const created = await api.createBackup(server.id);
-      toastsStore.success(`Backup tucked away safely 🎁 (${formatBytes(created.sizeBytes)})`);
+      toastsStore.success(`Backup tucked away safely (${formatBytes(created.sizeBytes)})`);
       await loadBackups(server.id);
     } catch (error) {
       toastsStore.error(String(error));
@@ -69,7 +70,7 @@
     try {
       if (action === "restore") {
         await api.restoreBackup(server.id, fileName);
-        toastsStore.success("Backup restored — world is back! 🌍");
+        toastsStore.success("Backup restored — world is back!");
       } else {
         await api.deleteBackup(server.id, fileName);
         toastsStore.show("Backup deleted");
@@ -92,17 +93,21 @@
         Change the location in the Settings tab.
       </p>
       <code class="location" title={resolveBackupsDir(server)}>
-        📁 {resolveBackupsDir(server)}
+        <Folder size={13} /> {resolveBackupsDir(server)}
       </code>
     </div>
     <Button disabled={working} onclick={createBackup}>
-      {working ? "Working…" : "🎁 Back up now"}
+      {#if working}
+        Working…
+      {:else}
+        <Gift size={15} /> Back up now
+      {/if}
     </Button>
   </div>
 
   {#if backups.length === 0}
     <div class="empty" in:fade={{ duration: 120 }}>
-      <span class="face">🫙</span>
+      <span class="face"><Archive size={40} /></span>
       <p>No backups yet — make your first one, future-you will be grateful!</p>
     </div>
   {:else}
@@ -132,14 +137,14 @@
                   : "Stop the server to restore"}
                 onclick={() => (confirming = { action: "restore", fileName: backup.fileName })}
               >
-                ↩️ Restore
+                <Undo2 size={14} /> Restore
               </Button>
               <Button
                 variant="ghost"
                 disabled={working}
                 onclick={() => (confirming = { action: "delete", fileName: backup.fileName })}
               >
-                🗑
+                <Trash2 size={14} />
               </Button>
             </span>
           {/if}

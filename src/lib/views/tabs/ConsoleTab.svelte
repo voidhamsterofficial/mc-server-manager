@@ -1,4 +1,18 @@
 <script lang="ts">
+  import {
+    Megaphone,
+    Gift,
+    Gamepad2,
+    Swords,
+    Crown,
+    Save,
+    ListChecks,
+    Send,
+    Zap,
+    Sun,
+    Moon,
+    CloudSun,
+  } from "@lucide/svelte";
   import { api, type ServerConfig } from "../../api";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
@@ -56,24 +70,35 @@
 
   function quickCommands(): MenuEntry[] {
     const entries: MenuEntry[] = [
-      { label: "List players", emoji: "📋", action: () => runCommand("list") },
-      { label: "Save world", emoji: "💾", action: () => runCommand("save-all") },
+      { label: "List players", icon: ListChecks, tone: "info", action: () => runCommand("list") },
+      { label: "Save world", icon: Save, tone: "success", action: () => runCommand("save-all") },
       "separator",
     ];
     if (!isBedrock) {
       entries.push(
-        { label: "Time: day", emoji: "☀️", action: () => runCommand("time set day") },
-        { label: "Time: night", emoji: "🌙", action: () => runCommand("time set night") },
-        { label: "Weather: clear", emoji: "🌈", action: () => runCommand("weather clear") },
+        { label: "Time: day", icon: Sun, tone: "warning", action: () => runCommand("time set day") },
+        { label: "Time: night", icon: Moon, tone: "info", action: () => runCommand("time set night") },
+        {
+          label: "Weather: clear",
+          icon: CloudSun,
+          tone: "success",
+          action: () => runCommand("weather clear"),
+        },
         "separator",
       );
     }
     entries.push(
-      { label: "Broadcast (say)…", emoji: "📢", action: () => prefill("say ") },
-      { label: "Give item…", emoji: "🎁", disabled: isBedrock, action: () => prefill("give ") },
-      { label: "Set gamemode…", emoji: "🎮", action: () => prefill("gamemode ") },
-      { label: "Difficulty…", emoji: "⚔️", action: () => prefill("difficulty ") },
-      { label: "Op player…", emoji: "👑", action: () => prefill("op ") },
+      { label: "Broadcast (say)…", icon: Megaphone, tone: "info", action: () => prefill("say ") },
+      {
+        label: "Give item…",
+        icon: Gift,
+        tone: "success",
+        disabled: isBedrock,
+        action: () => prefill("give "),
+      },
+      { label: "Set gamemode…", icon: Gamepad2, tone: "info", action: () => prefill("gamemode ") },
+      { label: "Difficulty…", icon: Swords, tone: "warning", action: () => prefill("difficulty ") },
+      { label: "Op player…", icon: Crown, tone: "warning", action: () => prefill("op ") },
     );
     return entries;
   }
@@ -89,8 +114,14 @@
   </div>
 
   <form class="command-row" onsubmit={sendCommand}>
-    <Button variant="soft" disabled={!canCommand} onclick={openQuickCommands} title="Quick commands">
-      ⚡
+    <Button
+      variant="soft"
+      square
+      disabled={!canCommand}
+      onclick={openQuickCommands}
+      title="Quick commands"
+    >
+      <Zap size={18} fill="currentColor" strokeWidth={1.5} />
     </Button>
     <input
       bind:this={commandInput}
@@ -102,7 +133,10 @@
       disabled={!canCommand}
       spellcheck="false"
     />
-    <Button type="submit" disabled={!canCommand}>Send 🏹</Button>
+    <Button type="submit" disabled={!canCommand}>
+      <Send size={16} />
+      Send
+    </Button>
   </form>
 </div>
 

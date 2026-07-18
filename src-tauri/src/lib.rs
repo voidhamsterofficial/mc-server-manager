@@ -1,3 +1,4 @@
+mod addon;
 mod backups;
 mod commands;
 mod console;
@@ -8,6 +9,7 @@ mod files;
 mod fsutil;
 mod installers;
 mod java;
+mod mods;
 mod platform;
 mod playerdata;
 mod plugins;
@@ -19,6 +21,7 @@ mod scheduler;
 mod servers;
 mod service;
 mod settings;
+mod sources;
 mod state;
 mod stats;
 
@@ -110,6 +113,17 @@ pub fn run() {
             commands::delete_plugin,
             commands::search_plugins,
             commands::install_plugin,
+            commands::check_plugin_updates,
+            commands::update_plugin,
+            commands::list_mods,
+            commands::set_mod_enabled,
+            commands::delete_mod,
+            commands::search_mods,
+            commands::install_mod,
+            commands::check_mod_updates,
+            commands::update_mod,
+            commands::get_curseforge_api_key,
+            commands::set_curseforge_api_key,
             commands::create_backup,
             commands::list_backups,
             commands::restore_backup,

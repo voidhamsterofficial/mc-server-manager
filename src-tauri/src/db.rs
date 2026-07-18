@@ -70,10 +70,6 @@ impl Db {
         Ok(())
     }
 
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
     // --- generic key/value settings -------------------------------------
 
     pub fn get_kv(&self, key: &str) -> AppResult<Option<String>> {
@@ -120,14 +116,6 @@ impl Db {
         self.conn
             .execute("DELETE FROM known_servers WHERE id = ?1", params![id])?;
         Ok(())
-    }
-
-    pub fn known_server_exists(&self, id: &str) -> AppResult<bool> {
-        let mut statement = self
-            .conn
-            .prepare("SELECT 1 FROM known_servers WHERE id = ?1")?;
-        let found = statement.exists(params![id])?;
-        Ok(found)
     }
 
     // --- rosters ------------------------------------------------------------
@@ -245,7 +233,13 @@ impl Db {
         old_conn.close().map_err(|(_, error)| error)?;
 
         if self.path.exists() {
-            std::fs::rename(&self.path, &new_path)?;
+            // `rename` fails with "cross-device link" when the new location is
+            // on a different drive/volume (common for a user-chosen folder),
+            // so fall back to copy + remove in that case.
+            if std::fs::rename(&self.path, &new_path).is_err() {
+                std::fs::copy(&self.path, &new_path)?;
+                std::fs::remove_file(&self.path)?;
+            }
         }
         let new_conn = Connection::open(&new_path)?;
         Self::migrate(&new_conn)?;
