@@ -176,7 +176,7 @@ fn add_zip_entry<W: Write + Seek>(
     let contents = match std::fs::read(entry_path) {
         Ok(bytes) => bytes,
         Err(read_error) => {
-            eprintln!(
+            log::warn!(
                 "backup: skipping locked/unreadable file {}: {read_error}",
                 entry_path.display()
             );

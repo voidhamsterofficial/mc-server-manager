@@ -80,7 +80,7 @@ pub async fn install(
     promote_built_jar(&build_dir, server_dir, mc_version)?;
 
     if let Err(error) = std::fs::remove_dir_all(&build_dir) {
-        eprintln!("could not clean BuildTools workspace: {error}");
+        log::warn!("could not clean BuildTools workspace: {error}");
     }
     Ok(())
 }

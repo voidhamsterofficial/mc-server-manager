@@ -92,7 +92,7 @@ pub async fn install(
     .await?;
 
     if let Err(error) = std::fs::remove_file(&installer_path) {
-        eprintln!("could not remove quilt installer: {error}");
+        log::warn!("could not remove quilt installer: {error}");
     }
     Ok(())
 }

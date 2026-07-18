@@ -40,13 +40,30 @@ fn asset_mc_version(asset_name: &str) -> Option<String> {
 }
 
 async fn recent_releases(client: &reqwest::Client) -> AppResult<Vec<Release>> {
-    let releases = client
+    let response = client
         .get(ARCLIGHT_RELEASES_URL)
+        .header("Accept", "application/vnd.github+json")
+        .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
-        .await?
-        .error_for_status()?
-        .json()
         .await?;
+
+    // Unauthenticated GitHub allows only 60 requests/hour per IP; make that
+    // legible instead of surfacing an opaque "network error".
+    if response.status() == reqwest::StatusCode::FORBIDDEN
+        && response
+            .headers()
+            .get("x-ratelimit-remaining")
+            .and_then(|value| value.to_str().ok())
+            == Some("0")
+    {
+        return Err(AppError::Process(
+            "GitHub's API rate limit was reached while listing Arclight versions. \
+             Please wait a while and try again."
+                .to_string(),
+        ));
+    }
+
+    let releases = response.error_for_status()?.json().await?;
     Ok(releases)
 }
 

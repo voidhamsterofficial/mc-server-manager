@@ -203,6 +203,24 @@ pub async fn detect_java(state: State<'_, AppState>) -> AppResult<Vec<JavaInstal
     Ok(installs)
 }
 
+/// Opens the folder holding Blockparty's log files in the OS file manager, so a
+/// user can grab them when reporting a problem.
+#[tauri::command]
+pub async fn open_logs_dir(app: AppHandle) -> AppResult<()> {
+    use tauri::Manager;
+    use tauri_plugin_opener::OpenerExt;
+
+    let dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|error| AppError::Process(format!("could not find the log folder: {error}")))?;
+    std::fs::create_dir_all(&dir).ok();
+    app.opener()
+        .open_path(dir.to_string_lossy().into_owned(), None::<&str>)
+        .map_err(|error| AppError::Process(format!("could not open the log folder: {error}")))?;
+    Ok(())
+}
+
 /// The pixel size Minecraft requires for `server-icon.png`.
 const SERVER_ICON_SIZE: u32 = 64;
 const SERVER_ICON_FILE: &str = "server-icon.png";
@@ -1029,7 +1047,7 @@ pub async fn preview_next_run(cron: String) -> AppResult<Option<i64>> {
 /// installation error is what the user needs to see, not a cleanup failure.
 fn remove_dir_best_effort(dir: &std::path::Path) {
     if let Err(error) = std::fs::remove_dir_all(dir) {
-        eprintln!("failed to clean up {}: {error}", dir.display());
+        log::warn!("failed to clean up {}: {error}", dir.display());
     }
 }
 

@@ -96,7 +96,7 @@ async fn required_java_major(client: &reqwest::Client, mc_version: &str) -> u32 
     match java::download::most_recent_lts(client).await {
         Ok(latest_lts) => latest_lts,
         Err(lookup_error) => {
-            eprintln!("could not look up the latest Java LTS: {lookup_error}");
+            log::warn!("could not look up the latest Java LTS: {lookup_error}");
             java::FALLBACK_JAVA_MAJOR
         }
     }
@@ -131,13 +131,13 @@ pub async fn create_backup(app: &AppHandle, server_id: &str) -> AppResult<Backup
     if let Some(keep_newest) = config.backup_retention {
         let pruned = backups::prune(&backups_dir, keep_newest.max(1))?;
         if pruned > 0 {
-            eprintln!("pruned {pruned} old backup(s) for {server_id}");
+            log::info!("pruned {pruned} old backup(s) for {server_id}");
         }
     }
 
     // Let any open Backups tab refresh its (possibly stale) list.
     if let Err(error) = app.emit(crate::events::BACKUP_CREATED, server_id.to_string()) {
-        eprintln!("failed to emit backup-created event: {error}");
+        log::warn!("failed to emit backup-created event: {error}");
     }
     Ok(created)
 }

@@ -24,7 +24,30 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Route panics into the log file before the process aborts (the release
+    // profile uses panic = "abort"), so a crash leaves a diagnostic trail
+    // instead of vanishing silently for a user who launched the bundled app.
+    let default_panic = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        log::error!("panic: {info}");
+        default_panic(info);
+    }));
+
     tauri::Builder::default()
+        .plugin(
+            // Rolling log file in the OS log dir, plus stdout during dev.
+            tauri_plugin_log::Builder::new()
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::LogDir {
+                        file_name: Some("blockparty".into()),
+                    },
+                ))
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::Stdout,
+                ))
+                .level(log::LevelFilter::Info)
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
@@ -55,6 +78,7 @@ pub fn run() {
             commands::close_port_forward,
             commands::port_forward_status,
             commands::detect_java,
+            commands::open_logs_dir,
             commands::kill_all_java,
             commands::get_settings,
             commands::set_servers_base_dir,

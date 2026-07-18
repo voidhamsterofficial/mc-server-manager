@@ -115,6 +115,9 @@ async fn forge_mc_versions(client: &reqwest::Client) -> AppResult<Vec<String>> {
         .keys()
         .filter_map(|key| key.strip_suffix("-latest").map(str::to_string))
         .collect();
+    // `promos` is a HashMap (unordered), so dedup must sort first — Vec::dedup
+    // only removes *consecutive* duplicates. The caller re-sorts for display.
+    mc_versions.sort();
     mc_versions.dedup();
     Ok(mc_versions)
 }
@@ -207,7 +210,7 @@ fn remove_best_effort(path: &Path) {
         return;
     }
     if let Err(error) = std::fs::remove_file(path) {
-        eprintln!("could not remove {}: {error}", path.display());
+        log::warn!("could not remove {}: {error}", path.display());
     }
 }
 

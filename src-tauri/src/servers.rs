@@ -127,7 +127,7 @@ impl ServerRegistry {
             match load_server_settings(dir) {
                 Ok(config) => servers.push(config),
                 Err(error) => {
-                    eprintln!("skipping server folder {}: {error}", dir.display());
+                    log::warn!("skipping server folder {}: {error}", dir.display());
                 }
             }
         }

@@ -129,6 +129,12 @@ fn build_http_client() -> AppResult<reqwest::Client> {
             env!("CARGO_PKG_VERSION"),
             " (github.com/Squ1ggly/mc-server-manager)"
         ))
+        // Without these, a hung CDN or half-open socket blocks the awaiting
+        // task forever (version lists spin, downloads never fail). read_timeout
+        // is an idle/between-chunks timeout, so it won't cut a slow-but-
+        // progressing download — only a genuinely stalled one.
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .read_timeout(std::time::Duration::from_secs(60))
         .build()?;
     Ok(client)
 }

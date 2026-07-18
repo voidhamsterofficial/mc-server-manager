@@ -13,7 +13,8 @@ pub mod quilt;
 pub mod spigot;
 pub mod vanilla;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use crate::error::{AppError, AppResult};
 use crate::servers::Loader;
@@ -245,14 +246,22 @@ pub fn progress_event_reporter(
             total_bytes,
         };
         if let Err(error) = app.emit(crate::events::INSTALL_PROGRESS, payload) {
-            eprintln!("failed to emit install progress: {error}");
+            log::warn!("failed to emit install progress: {error}");
         }
     };
     Box::new(reporter)
 }
 
+/// Attempts for a transient download failure before giving up.
+const DOWNLOAD_ATTEMPTS: u32 = 3;
+
 /// Streams `url` to `destination`, verifying the expected checksum and
 /// reporting progress along the way.
+///
+/// The transfer goes to a sibling `.part` temp file and is only renamed into
+/// place once it completes and its checksum verifies — so a dropped connection,
+/// truncated stream, or checksum mismatch never leaves a half-written file that
+/// later looks complete (a corrupt `server.jar` boots with an opaque JVM error).
 pub async fn download_file(
     client: &reqwest::Client,
     url: &str,
@@ -260,7 +269,43 @@ pub async fn download_file(
     expected: ExpectedChecksum<'_>,
     report_progress: &ProgressCallback,
 ) -> AppResult<()> {
-    let response = client.get(url).send().await?.error_for_status()?;
+    let temp_path = temp_download_path(destination);
+    match download_to_temp(
+        client,
+        url,
+        destination,
+        &temp_path,
+        expected,
+        report_progress,
+    )
+    .await
+    {
+        Ok(()) => Ok(tokio::fs::rename(&temp_path, destination).await?),
+        Err(error) => {
+            let _ = tokio::fs::remove_file(&temp_path).await;
+            Err(error)
+        }
+    }
+}
+
+/// A sibling temp path: `server.jar` -> `server.jar.part`.
+fn temp_download_path(destination: &Path) -> PathBuf {
+    let mut name = destination.as_os_str().to_os_string();
+    name.push(".part");
+    PathBuf::from(name)
+}
+
+/// Streams the body into `temp_path` and verifies its checksum. Never touches
+/// `destination` (used only for a friendly name in the checksum error).
+async fn download_to_temp(
+    client: &reqwest::Client,
+    url: &str,
+    destination: &Path,
+    temp_path: &Path,
+    expected: ExpectedChecksum<'_>,
+    report_progress: &ProgressCallback,
+) -> AppResult<()> {
+    let response = send_with_retry(client, url).await?;
     let total_bytes = response.content_length();
     if let Some(total) = total_bytes {
         if total > MAX_DOWNLOAD_BYTES {
@@ -270,7 +315,7 @@ pub async fn download_file(
         }
     }
 
-    let mut file = tokio::fs::File::create(destination).await?;
+    let mut file = tokio::fs::File::create(temp_path).await?;
     let mut sha1_hasher = Sha1::new();
     let mut sha256_hasher = Sha256::new();
     let mut sha512_hasher = Sha512::new();
@@ -287,8 +332,6 @@ pub async fn download_file(
         }
         downloaded_bytes += chunk.len() as u64;
         if downloaded_bytes > MAX_DOWNLOAD_BYTES {
-            drop(file);
-            let _ = tokio::fs::remove_file(destination).await;
             return Err(AppError::Process(format!(
                 "download from {url} exceeded the {MAX_DOWNLOAD_BYTES}-byte limit"
             )));
@@ -297,11 +340,10 @@ pub async fn download_file(
         report_progress(downloaded_bytes, total_bytes);
     }
     file.flush().await?;
+    drop(file);
 
     let (expected_hex, actual_hex) = match expected {
-        ExpectedChecksum::None => {
-            return Ok(());
-        }
+        ExpectedChecksum::None => return Ok(()),
         ExpectedChecksum::Sha1(expected_hex) => (expected_hex, hex::encode(sha1_hasher.finalize())),
         ExpectedChecksum::Sha256(expected_hex) => {
             (expected_hex, hex::encode(sha256_hasher.finalize()))
@@ -311,6 +353,44 @@ pub async fn download_file(
         }
     };
     verify_checksum(destination, expected_hex, &actual_hex)
+}
+
+/// Sends the GET, retrying a few times on transient failures (connection
+/// problems, timeouts, 5xx, 429) with exponential backoff. A definitive
+/// response (404, other 4xx) fails immediately without retrying.
+async fn send_with_retry(client: &reqwest::Client, url: &str) -> AppResult<reqwest::Response> {
+    let mut attempt = 0;
+    loop {
+        attempt += 1;
+        let outcome = match client.get(url).send().await {
+            Ok(response) => response.error_for_status(),
+            Err(error) => Err(error),
+        };
+        match outcome {
+            Ok(response) => return Ok(response),
+            Err(error) => {
+                if attempt >= DOWNLOAD_ATTEMPTS || !is_transient(&error) {
+                    return Err(error.into());
+                }
+                let backoff = Duration::from_millis(300 * 2u64.pow(attempt - 1));
+                tokio::time::sleep(backoff).await;
+            }
+        }
+    }
+}
+
+/// Whether a request error is worth retrying: connection/timeout failures, or a
+/// 5xx / 429 response. Definitive 4xx responses are not retried.
+fn is_transient(error: &reqwest::Error) -> bool {
+    if error.is_timeout() || error.is_connect() {
+        return true;
+    }
+    match error.status() {
+        Some(status) => {
+            status.is_server_error() || status == reqwest::StatusCode::TOO_MANY_REQUESTS
+        }
+        None => false,
+    }
 }
 
 fn verify_checksum(destination: &Path, expected_hex: &str, actual_hex: &str) -> AppResult<()> {

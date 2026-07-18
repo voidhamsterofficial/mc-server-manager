@@ -24,7 +24,7 @@ pub fn tie_child_to_app_lifetime(child: &tokio::process::Child) {
     let job = APP_JOB.get_or_init(|| {
         let created = create_kill_on_close_job();
         if let Err(error) = &created {
-            eprintln!("could not create process job object: {error}");
+            log::warn!("could not create process job object: {error}");
         }
         created.ok()
     });
@@ -36,7 +36,7 @@ pub fn tie_child_to_app_lifetime(child: &tokio::process::Child) {
         return;
     };
     if let Err(error) = job.assign_process(raw_handle as isize) {
-        eprintln!("could not assign server process to job object: {error}");
+        log::warn!("could not assign server process to job object: {error}");
     }
 }
 

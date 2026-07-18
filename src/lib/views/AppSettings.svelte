@@ -17,6 +17,15 @@
     openUrl(url).catch((error) => toastsStore.error(String(error)));
   }
 
+  /** Reveal the app's log folder so a user can attach logs to a bug report. */
+  async function openLogs() {
+    try {
+      await api.openLogsDir();
+    } catch (error) {
+      toastsStore.error(String(error));
+    }
+  }
+
   let settings = $state<AppSettings | null>(null);
   let javaInstalls = $state<JavaInstall[]>([]);
   let detectingJava = $state(false);
@@ -173,6 +182,11 @@
       >
         Source &amp; issues on GitHub
       </button>
+    </p>
+    <p class="hint">
+      Something misbehaving?
+      <button class="link" onclick={openLogs}>Open the logs folder</button>
+      and attach the newest file when reporting an issue.
     </p>
   </div>
 </section>

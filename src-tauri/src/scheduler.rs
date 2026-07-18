@@ -122,7 +122,7 @@ fn is_due(cron_expression: &str, since: DateTime<Local>, now: DateTime<Local>) -
 pub async fn execute_task(app: AppHandle, task: ScheduledTask) {
     let outcome = run_action(&app, &task).await;
     if let Err(error) = outcome {
-        eprintln!("scheduled task '{}' failed: {error}", task.name);
+        log::warn!("scheduled task '{}' failed: {error}", task.name);
     }
 }
 

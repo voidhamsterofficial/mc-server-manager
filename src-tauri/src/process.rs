@@ -227,7 +227,7 @@ fn write_pid_file(server_dir: &Path, pid: Option<u32>) {
         return;
     };
     if let Err(error) = std::fs::write(server_dir.join(PID_FILE_NAME), pid.to_string()) {
-        eprintln!("could not write pid file: {error}");
+        log::warn!("could not write pid file: {error}");
     }
 }
 
@@ -242,7 +242,7 @@ fn remove_pid_file(server_dir: &Path) {
         return;
     }
     if let Err(error) = std::fs::remove_file(&pid_path) {
-        eprintln!("could not remove pid file: {error}");
+        log::warn!("could not remove pid file: {error}");
     }
 }
 
@@ -273,7 +273,7 @@ pub async fn kill_all_blockparty_java(
     match sweep {
         Ok(killed_count) => killed_count,
         Err(join_error) => {
-            eprintln!("java sweep failed: {join_error}");
+            log::warn!("java sweep failed: {join_error}");
             0
         }
     }
@@ -772,7 +772,7 @@ fn apply_player_change(players: &mut Vec<String>, change: PlayerChange) {
 /// Kills the child. A kill is never a "clean" exit.
 async fn force_kill(child: &mut Child) -> bool {
     if let Err(error) = child.kill().await {
-        eprintln!("failed to kill server process: {error}");
+        log::warn!("failed to kill server process: {error}");
     }
     false
 }
@@ -841,6 +841,6 @@ fn emit_status(app: &AppHandle, server_id: &str, status: ServerStatus) {
 
 pub(crate) fn emit_event<P: Serialize + Clone>(app: &AppHandle, event_name: &str, payload: P) {
     if let Err(error) = app.emit(event_name, payload) {
-        eprintln!("failed to emit {event_name}: {error}");
+        log::warn!("failed to emit {event_name}: {error}");
     }
 }

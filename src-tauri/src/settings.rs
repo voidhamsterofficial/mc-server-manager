@@ -117,7 +117,7 @@ fn migrate_from_json(data_dir: &Path) -> Option<GlobalSettings> {
             config.dir = data_dir.join("servers").join(&config.id);
         }
         if let Err(error) = crate::servers::save_server_settings(&config) {
-            eprintln!("migration: could not write {}: {error}", config.name);
+            log::warn!("migration: could not write {}: {error}", config.name);
             continue;
         }
         server_dirs.push(config.dir);
@@ -141,7 +141,7 @@ fn dir_is_writable(dir: &Path) -> bool {
     if outcome.is_ok() {
         let cleanup = std::fs::remove_file(&probe);
         if let Err(error) = cleanup {
-            eprintln!("could not remove write probe: {error}");
+            log::warn!("could not remove write probe: {error}");
         }
         return true;
     }

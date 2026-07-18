@@ -154,7 +154,7 @@ fn extract_tar_gz(archive_path: &Path, destination: &Path) -> AppResult<()> {
 
 fn remove_archive_best_effort(archive_path: &Path) {
     if let Err(error) = std::fs::remove_file(archive_path) {
-        eprintln!("failed to remove {}: {error}", archive_path.display());
+        log::warn!("failed to remove {}: {error}", archive_path.display());
     }
 }
 

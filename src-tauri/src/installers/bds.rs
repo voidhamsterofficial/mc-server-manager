@@ -27,6 +27,8 @@ const BROWSER_USER_AGENT: &str =
 fn browser_client() -> AppResult<reqwest::Client> {
     reqwest::Client::builder()
         .user_agent(BROWSER_USER_AGENT)
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .read_timeout(std::time::Duration::from_secs(60))
         .build()
         .map_err(|error| AppError::Process(error.to_string()))
 }
@@ -125,7 +127,7 @@ pub async fn install(
 
     extract_archive(archive_path.clone(), server_dir.to_path_buf()).await?;
     if let Err(error) = std::fs::remove_file(&archive_path) {
-        eprintln!("could not remove {}: {error}", archive_path.display());
+        log::warn!("could not remove {}: {error}", archive_path.display());
     }
 
     mark_executable(server_dir);
@@ -151,7 +153,7 @@ fn mark_executable(server_dir: &Path) {
     let binary = server_dir.join("bedrock_server");
     let permissions = std::fs::Permissions::from_mode(0o755);
     if let Err(error) = std::fs::set_permissions(&binary, permissions) {
-        eprintln!("could not mark bedrock_server executable: {error}");
+        log::warn!("could not mark bedrock_server executable: {error}");
     }
 }
 
@@ -184,7 +186,10 @@ mod tests {
     }
 
     /// The stable server must be picked — never the preview, and never the
-    /// Java jar that shares the same listing.
+    /// Java jar that shares the same listing. BDS only ships for Windows and
+    /// Linux, so `download_type()` has no answer on other platforms (e.g. a
+    /// macOS dev machine) — gate the test to where it's meaningful.
+    #[cfg(any(windows, target_os = "linux"))]
     #[test]
     fn picks_the_stable_server_for_this_platform() {
         let listing: DownloadLinks = serde_json::from_str(SAMPLE_RESPONSE).expect("parse");

@@ -19,10 +19,10 @@ jobs:
         include:
           - platform: windows-latest
             args: ""
-          - platform: macos-latest # Apple Silicon
-            args: "--target aarch64-apple-darwin"
-          - platform: macos-latest # Intel
-            args: "--target x86_64-apple-darwin"
+          # One universal2 build (Intel + Apple Silicon in a single .dmg) so
+          # there's just one macOS installer that runs natively on any Mac.
+          - platform: macos-latest
+            args: "--target universal-apple-darwin"
           - platform: ubuntu-22.04
             args: ""
 
@@ -52,7 +52,7 @@ jobs:
       # The tauri CLI itself is a devDependency, so it must exist before
       # `npm run tauri build` can do anything.
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
 
       - uses: tauri-apps/tauri-action@v0
         env:
