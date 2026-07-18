@@ -523,6 +523,13 @@
     min-width: 0;
     min-height: 0;
     overflow-y: auto;
+    /* Always reserve the scrollbar gutter so switching between short and tall
+       pages (e.g. Docs topics) doesn't shift centered content sideways when the
+       scrollbar appears or disappears. */
+    scrollbar-gutter: stable;
+    /* No rubber-band overscroll bouncing past the content — makes the app feel
+       like a solid native window rather than a web page. */
+    overscroll-behavior: none;
   }
 
   .java-pill {

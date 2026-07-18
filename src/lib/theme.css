@@ -115,6 +115,10 @@ html,
 body {
   margin: 0;
   height: 100%;
+  /* Lock the window itself: the app shell never scrolls or rubber-bands; only
+     the designated inner regions do. Keeps it feeling like a native app. */
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {

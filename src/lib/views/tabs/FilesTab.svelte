@@ -258,7 +258,14 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    padding: 0.3rem 0.5rem;
+    padding: 0.15rem 0.4rem;
+    transition: background-color var(--duration-fast) var(--ease-out);
+  }
+
+  /* Highlight the whole row on hover, not a smaller box inside it. */
+  .entries li:hover {
+    background: var(--surface-2);
+    border-color: color-mix(in srgb, var(--border) 45%, var(--accent));
   }
 
   .entry {
@@ -270,15 +277,13 @@
     border: none;
     background: transparent;
     font-family: inherit;
+    font-size: 0.95rem;
     text-align: left;
     color: var(--text);
     cursor: pointer;
-    padding: 0.35rem 0.4rem;
+    /* Tall padding so the click target fills the row height. */
+    padding: 0.55rem 0.4rem;
     border-radius: var(--radius-sm);
-  }
-
-  .entry:hover {
-    background: var(--surface-2);
   }
 
   .entry-name {
@@ -291,7 +296,7 @@
   }
 
   .entry-size {
-    font-size: 0.78rem;
+    font-size: 0.85rem;
     color: var(--muted);
     font-variant-numeric: tabular-nums;
   }
