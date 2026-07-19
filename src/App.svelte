@@ -557,11 +557,13 @@
     flex: 1;
     min-width: 0;
     min-height: 0;
-    overflow-y: auto;
-    /* Always reserve the scrollbar gutter so switching between short and tall
-       pages (e.g. Docs topics) doesn't shift centered content sideways when the
-       scrollbar appears or disappears. */
-    scrollbar-gutter: stable;
+    /* `scroll` (not `auto`) always lays out the scrollbar track, so switching
+       between short and tall pages (e.g. Docs topics) never shifts centered
+       content sideways. The app's custom scrollbar takes real space and its
+       track is transparent, so the reserved gutter is invisible until content
+       actually overflows. (`scrollbar-gutter: stable` is unreliable in WebKit
+       once `::-webkit-scrollbar` is customized, so we reserve space this way.) */
+    overflow-y: scroll;
     /* No rubber-band overscroll bouncing past the content — makes the app feel
        like a solid native window rather than a web page. */
     overscroll-behavior: none;

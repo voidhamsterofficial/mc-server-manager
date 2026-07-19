@@ -278,9 +278,15 @@
   .tab-content {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
-    /* `overflow-y: auto` makes overflow-x compute to `auto` too, which clips
-       anything sitting flush against the edges — including the 2px outset
+    /* `scroll` (not `auto`) always reserves the scrollbar's space, so content
+       that grows past the viewport (e.g. the dashboard's port-forward panel
+       expanding after "Open to internet") brings the scrollbar in without
+       shifting the whole tab sideways. Matches the app shell's main scroller.
+       The custom scrollbar track is transparent, so it's invisible until it
+       actually scrolls. */
+    overflow-y: scroll;
+    /* A non-visible overflow-y makes overflow-x compute to `auto` too, which
+       clips anything sitting flush against the edges — including the 2px outset
        outline on buttons at the very left (e.g. the console's quick-commands
        button). A few px of padding gives those outlines room to render. */
     padding: 3px;
