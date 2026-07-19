@@ -74,13 +74,15 @@ async fn find_gateway(lan_ip: Ipv4Addr) -> Result<Gateway<Tokio>, PortForwardErr
         .map_err(|_| PortForwardError::NoGateway)
 }
 
-/// Adds the mapping, working around the two ways routers commonly refuse one.
+/// Adds the mapping, working around the two ways routers commonly refuse one,
+/// and returns the external port that ended up mapped — normally `port`, but
+/// see the fallback below.
 async fn add_mapping(
     gateway: &Gateway<Tokio>,
     proto: PortMappingProtocol,
     port: u16,
     local: SocketAddr,
-) -> Result<(), PortForwardError> {
+) -> Result<u16, PortForwardError> {
     // Some routers only accept finite leases, so retry with one if the
     // indefinite request is rejected.
     if gateway
@@ -88,53 +90,73 @@ async fn add_mapping(
         .await
         .is_ok()
     {
-        return Ok(());
+        return Ok(port);
     }
     if gateway
         .add_port(proto, port, local, FALLBACK_LEASE, DESCRIPTION)
         .await
         .is_ok()
     {
-        return Ok(());
+        return Ok(port);
     }
 
     // A leftover mapping for this port — ours from a previous run, or one the
     // router kept after a reboot — makes it reject the new one. Clear it and
     // try once more.
     let _ = gateway.remove_port(proto, port).await;
-    gateway
+    if gateway
         .add_port(proto, port, local, FALLBACK_LEASE, DESCRIPTION)
+        .await
+        .is_ok()
+    {
+        return Ok(port);
+    }
+
+    // Some routers refuse to delete a mapping unless the request comes from
+    // the internal client that created it — e.g. this machine after a DHCP
+    // renewal changed its LAN IP, or another device that's no longer even on
+    // the network. There's no way to force that deletion from here, so
+    // instead of fighting the router for `port`, ask it to hand back any free
+    // external port. Players just need host:port, and that port doesn't need
+    // to match the server's internal port.
+    gateway
+        .add_any_port(proto, local, FALLBACK_LEASE, DESCRIPTION)
         .await
         .map_err(|error| PortForwardError::Router(error.to_string()))
 }
 
-/// Asks the router to forward `port` to this machine and returns the router's
-/// WAN (external) IP so the caller can check reachability.
+/// Asks the router to forward `port` to this machine. Returns the router's WAN
+/// (external) IP and the external port actually mapped — usually `port`, but a
+/// different one if the router wouldn't give up a stale conflicting mapping on
+/// `port` (see [`add_mapping`]).
 pub async fn open(
     protocol: Protocol,
     port: u16,
     lan_ip: Ipv4Addr,
-) -> Result<IpAddr, PortForwardError> {
+) -> Result<(IpAddr, u16), PortForwardError> {
     let gateway = find_gateway(lan_ip).await?;
     let local = SocketAddr::new(IpAddr::V4(lan_ip), port);
 
-    add_mapping(&gateway, protocol.as_igd(), port, local).await?;
+    let external_port = add_mapping(&gateway, protocol.as_igd(), port, local).await?;
 
-    gateway
+    let wan_ip = gateway
         .get_external_ip()
         .await
-        .map_err(|error| PortForwardError::Router(error.to_string()))
+        .map_err(|error| PortForwardError::Router(error.to_string()))?;
+    Ok((wan_ip, external_port))
 }
 
-/// Removes a mapping previously added by [`open`]. A missing mapping is fine.
+/// Removes a mapping previously added by [`open`]. `external_port` is the port
+/// [`open`] returned, which may differ from the server's internal port. A
+/// missing mapping is fine.
 pub async fn close(
     protocol: Protocol,
-    port: u16,
+    external_port: u16,
     lan_ip: Ipv4Addr,
 ) -> Result<(), PortForwardError> {
     let gateway = find_gateway(lan_ip).await?;
     gateway
-        .remove_port(protocol.as_igd(), port)
+        .remove_port(protocol.as_igd(), external_port)
         .await
         .map_err(|error| PortForwardError::Router(error.to_string()))
 }
@@ -143,17 +165,22 @@ pub async fn close(
 /// than this; the bound just stops a misbehaving one from looping forever.
 const MAX_MAPPING_SCAN: u32 = 128;
 
-/// Whether this machine already has `port` forwarded to it — i.e. a mapping we
-/// (or a previous run of the app) left on the router. Returns the router's WAN
-/// IP alongside, so the caller can rebuild the shareable address.
+/// Whether this machine already has `internal_port` forwarded to it — i.e. a
+/// mapping we (or a previous run of the app) left on the router. Returns the
+/// router's WAN IP and the external port the mapping actually uses (which,
+/// per [`open`]'s fallback, may not equal `internal_port`), so the caller can
+/// rebuild the shareable address.
 ///
 /// Mappings outlive the app, so this is how a restart rediscovers that a
 /// server is still open to the internet instead of claiming it isn't.
+/// Matching by internal port/client rather than by external port also means a
+/// previous fallback mapping (opened on a different external port) is still
+/// found.
 pub async fn status(
     protocol: Protocol,
-    port: u16,
+    internal_port: u16,
     lan_ip: Ipv4Addr,
-) -> Result<Option<IpAddr>, PortForwardError> {
+) -> Result<Option<(IpAddr, u16)>, PortForwardError> {
     let gateway = find_gateway(lan_ip).await?;
     let wanted = protocol.as_igd();
     let us = lan_ip.to_string();
@@ -164,14 +191,15 @@ pub async fn status(
         let Ok(entry) = gateway.get_generic_port_mapping_entry(index).await else {
             break;
         };
-        let is_ours =
-            entry.external_port == port && entry.protocol == wanted && entry.internal_client == us;
+        let is_ours = entry.internal_port == internal_port
+            && entry.protocol == wanted
+            && entry.internal_client == us;
         if is_ours {
             let wan_ip = gateway
                 .get_external_ip()
                 .await
                 .map_err(|error| PortForwardError::Router(error.to_string()))?;
-            return Ok(Some(wan_ip));
+            return Ok(Some((wan_ip, entry.external_port)));
         }
     }
     Ok(None)

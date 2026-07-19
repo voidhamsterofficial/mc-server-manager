@@ -41,10 +41,12 @@ pub struct AppState {
     /// don't fetch the same runtime twice.
     pub java_download_lock: Mutex<()>,
     pub rosters: RosterStore,
-    /// server_ids whose port we forwarded via UPnP this session. Lets us close
-    /// the mapping when the server stops, and skip a pointless UPnP round-trip
-    /// for servers that were never forwarded.
-    pub forwarded: Mutex<std::collections::HashSet<String>>,
+    /// server_id -> external port, for servers whose port we forwarded via
+    /// UPnP this session. Lets us close the mapping when the server stops
+    /// (on the external port the router actually used, which can differ from
+    /// the server's internal port — see `portforward::open`), and skip a
+    /// pointless UPnP round-trip for servers that were never forwarded.
+    pub forwarded: Mutex<HashMap<String, u16>>,
 }
 
 impl AppState {
@@ -85,7 +87,7 @@ impl AppState {
             running: Arc::new(Mutex::new(HashMap::new())),
             java_download_lock: Mutex::new(()),
             rosters: RosterStore::new(Arc::clone(&db)),
-            forwarded: Mutex::new(std::collections::HashSet::new()),
+            forwarded: Mutex::new(HashMap::new()),
             db,
             data_dir,
         };

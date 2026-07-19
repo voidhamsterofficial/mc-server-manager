@@ -258,22 +258,62 @@ fn close_forward_after_stop(app: &AppHandle, server_id: String) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let state = app.state::<AppState>();
-        if !state.forwarded.lock().await.remove(&server_id) {
-            return;
-        }
-        let Ok(config) = service::find_config(&app, &server_id).await else {
+        let Some(external_port) = state.forwarded.lock().await.remove(&server_id) else {
             return;
         };
-        let server_dir = state.server_dir(&config);
-        let Ok(port) = address::configured_port(&server_dir, config.loader).parse::<u16>() else {
+        let Ok(config) = service::find_config(&app, &server_id).await else {
             return;
         };
         let Ok(std::net::IpAddr::V4(lan_ip)) = address::local_lan_ip().parse::<std::net::IpAddr>()
         else {
             return;
         };
-        let _ = portforward::close(address::forward_protocol(config.loader), port, lan_ip).await;
+        let _ =
+            portforward::close(address::forward_protocol(config.loader), external_port, lan_ip)
+                .await;
     });
+}
+
+/// Closes every UPnP mapping this session opened, so quitting the app doesn't
+/// silently leave servers reachable from the internet. Called on app exit;
+/// best-effort and bounded by an overall timeout so an unresponsive router
+/// can't hang shutdown.
+///
+/// This only covers a graceful quit — a crash or force-kill skips it, same as
+/// any other in-memory state. [`port_forward_status`] is what recovers from
+/// that case, by rediscovering the leftover mapping on the next launch.
+pub async fn close_all_port_forwards(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let to_close: Vec<(String, u16)> = state.forwarded.lock().await.drain().collect();
+    if to_close.is_empty() {
+        return;
+    }
+
+    let Ok(std::net::IpAddr::V4(lan_ip)) = address::local_lan_ip().parse::<std::net::IpAddr>()
+    else {
+        return;
+    };
+
+    let closes = to_close.into_iter().map(|(server_id, external_port)| {
+        let app = app.clone();
+        async move {
+            let Ok(config) = service::find_config(&app, &server_id).await else {
+                return;
+            };
+            let _ = portforward::close(
+                address::forward_protocol(config.loader),
+                external_port,
+                lan_ip,
+            )
+            .await;
+        }
+    });
+
+    let _ = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        futures_util::future::join_all(closes),
+    )
+    .await;
 }
 
 #[tauri::command]
@@ -688,7 +728,7 @@ impl ForwardResult {
 
 /// Builds the "it's forwarded" outcome for a mapping on `wan_ip`, including the
 /// CGNAT check — shared by opening a mapping and by finding an existing one.
-async fn forward_success(wan_ip: std::net::IpAddr, port: u16) -> ForwardResult {
+async fn forward_success(wan_ip: std::net::IpAddr, external_port: u16) -> ForwardResult {
     let public = portforward::public_ip().await;
     // A WAN address that isn't what the internet sees means another NAT sits
     // in front of the router.
@@ -710,7 +750,7 @@ async fn forward_success(wan_ip: std::net::IpAddr, port: u16) -> ForwardResult {
 
     ForwardResult {
         success: true,
-        public_address: Some(format!("{host}:{port}")),
+        public_address: Some(format!("{host}:{external_port}")),
         cgnat,
         message,
     }
@@ -748,11 +788,17 @@ pub async fn open_port_forward(
     };
 
     match portforward::open(address::forward_protocol(config.loader), port, lan_ip).await {
-        Ok(wan_ip) => {
-            // Remember it so an explicit stop closes the mapping instead of
-            // leaving the port open to the internet.
-            state.forwarded.lock().await.insert(server_id.clone());
-            Ok(forward_success(wan_ip, port).await)
+        Ok((wan_ip, external_port)) => {
+            // Remember the external port so an explicit stop closes the right
+            // mapping instead of leaving the port open to the internet — the
+            // router may have handed back a different port than we asked for
+            // if it wouldn't give up a stale conflicting mapping.
+            state
+                .forwarded
+                .lock()
+                .await
+                .insert(server_id.clone(), external_port);
+            Ok(forward_success(wan_ip, external_port).await)
         }
         Err(portforward::PortForwardError::NoGateway) => Ok(ForwardResult::failure(
             "No UPnP router found. Check that UPnP is enabled on your router, and that \
@@ -791,11 +837,15 @@ pub async fn port_forward_status(
     };
 
     match portforward::status(address::forward_protocol(config.loader), port, lan_ip).await {
-        Ok(Some(wan_ip)) => {
+        Ok(Some((wan_ip, external_port))) => {
             // A mapping left over from a previous run — track it so stopping the
             // server still closes it this session.
-            state.forwarded.lock().await.insert(server_id.clone());
-            Ok(Some(forward_success(wan_ip, port).await))
+            state
+                .forwarded
+                .lock()
+                .await
+                .insert(server_id.clone(), external_port);
+            Ok(Some(forward_success(wan_ip, external_port).await))
         }
         _ => Ok(None),
     }
@@ -809,11 +859,17 @@ pub async fn close_port_forward(
     state: State<'_, AppState>,
     server_id: String,
 ) -> AppResult<()> {
-    state.forwarded.lock().await.remove(&server_id);
+    let tracked_port = state.forwarded.lock().await.remove(&server_id);
 
     let config = service::find_config(&app, &server_id).await?;
     let server_dir = state.server_dir(&config);
-    let port = address::configured_port(&server_dir, config.loader).parse::<u16>();
+    // Fall back to the configured (internal) port if we don't have a tracked
+    // external port — e.g. the mapping was found on a previous external port
+    // via `status` but the app hasn't recorded it this session.
+    let port = match tracked_port {
+        Some(port) => Ok(port),
+        None => address::configured_port(&server_dir, config.loader).parse::<u16>(),
+    };
     let lan_ip = address::local_lan_ip().parse::<std::net::IpAddr>();
 
     if let (Ok(port), Ok(std::net::IpAddr::V4(lan_ip))) = (port, lan_ip) {
