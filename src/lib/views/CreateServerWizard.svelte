@@ -27,14 +27,14 @@
     Folder,
     Wrench,
   } from "@lucide/svelte";
-  import { api, PROXY_LOADERS, type Loader, type McVersion } from "../api";
+  import { api, PROXY_LOADERS, type Loader, type McVersion } from "../ipc/api";
   import {
     MEMORY_MAX_MB,
     MEMORY_MIN_MB,
     MEMORY_STEP_MB,
     SERVER_NAME_MAX_LENGTH,
-  } from "../constants";
-  import { onInstallProgress } from "../events";
+  } from "../util/constants";
+  import { onInstallProgress } from "../ipc/events";
   import { serversStore } from "../stores/servers.svelte";
   import { toastsStore } from "../stores/toasts.svelte";
   import Modal from "../components/Modal.svelte";
@@ -739,28 +739,8 @@
     color: var(--strawberry);
   }
 
-  input[type="text"],
-  input[type="number"],
-  select {
-    font-family: inherit;
-    font-size: 1rem;
-    color: var(--text);
-    background: var(--surface-2);
-    border: 2px solid transparent;
-    border-radius: var(--radius-md);
-    box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.12);
-    padding: 0.6em 0.9em;
-    outline: none;
-    transition: border-color 0.18s ease;
-    min-width: 0;
-  }
-
-  input[type="text"]:focus,
-  input[type="number"]:focus,
-  select:focus {
-    border-color: var(--accent);
-  }
-
+  /* Text, number, and select controls inherit the app-wide blocky style from
+     theme.css — only the range slider needs a local accent here. */
   input[type="range"] {
     accent-color: var(--accent);
   }

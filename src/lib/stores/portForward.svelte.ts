@@ -4,7 +4,7 @@
 // (only its `server` prop changes), so component-local state would leak one
 // server's forwarding result — and its public address — onto every other one.
 
-import type { ForwardResult } from "../api";
+import type { ForwardResult } from "../ipc/api";
 
 class PortForwardStore {
   private results = $state<Record<string, ForwardResult>>({});

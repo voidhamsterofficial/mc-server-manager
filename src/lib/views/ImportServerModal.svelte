@@ -1,8 +1,8 @@
 <script lang="ts">
   import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
-  import { api, type Loader } from "../api";
+  import { api, type Loader } from "../ipc/api";
   import { toastsStore } from "../stores/toasts.svelte";
-  import { MEMORY_MAX_MB, MEMORY_MIN_MB, MEMORY_STEP_MB } from "../constants";
+  import { MEMORY_MAX_MB, MEMORY_MIN_MB, MEMORY_STEP_MB } from "../util/constants";
   import Modal from "../components/Modal.svelte";
   import Button from "../components/Button.svelte";
 
@@ -211,24 +211,7 @@
     word-break: break-all;
   }
 
-  input[type="text"],
-  select {
-    font-family: inherit;
-    font-size: 0.95rem;
-    color: var(--text);
-    background: var(--surface-2);
-    border: 2px solid transparent;
-    border-radius: var(--radius-md);
-    padding: 0.5em 0.8em;
-    outline: none;
-    transition: border-color 0.18s ease;
-  }
-
-  input[type="text"]:focus,
-  select:focus {
-    border-color: var(--accent);
-  }
-
+  /* Text and select controls inherit the app-wide blocky style from theme.css. */
   input[type="range"] {
     accent-color: var(--accent);
   }

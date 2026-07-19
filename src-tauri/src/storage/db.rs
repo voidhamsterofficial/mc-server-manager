@@ -232,21 +232,40 @@ impl Db {
         let old_conn = std::mem::replace(&mut self.conn, placeholder);
         old_conn.close().map_err(|(_, error)| error)?;
 
-        if self.path.exists() {
-            // `rename` fails with "cross-device link" when the new location is
-            // on a different drive/volume (common for a user-chosen folder),
-            // so fall back to copy + remove in that case.
-            if std::fs::rename(&self.path, &new_path).is_err() {
-                std::fs::copy(&self.path, &new_path)?;
-                std::fs::remove_file(&self.path)?;
-            }
+        if let Err(move_error) = move_db_file(&self.path, &new_path) {
+            // The move failed (disk full, permissions, a read-only target, …).
+            // Reopen the database at its original location so `self` stays a
+            // working handle instead of silently becoming the empty in-memory
+            // placeholder, which would drop every subsequent read and write.
+            self.conn = Connection::open(&self.path)?;
+            return Err(move_error);
         }
+
         let new_conn = Connection::open(&new_path)?;
         Self::migrate(&new_conn)?;
         self.conn = new_conn;
         self.path = new_path;
         Ok(())
     }
+}
+
+/// Moves the database file to `destination`. A missing source is not an error
+/// — a database that has never been written yet simply has nothing to move.
+fn move_db_file(source: &Path, destination: &Path) -> AppResult<()> {
+    if !source.exists() {
+        return Ok(());
+    }
+
+    // `rename` fails with "cross-device link" when the destination is on a
+    // different drive/volume (common for a user-chosen folder), so fall back
+    // to copy + remove in that case.
+    if std::fs::rename(source, destination).is_ok() {
+        return Ok(());
+    }
+
+    std::fs::copy(source, destination)?;
+    std::fs::remove_file(source)?;
+    Ok(())
 }
 
 /// One installed plugin/mod's provenance, used to check for updates later.

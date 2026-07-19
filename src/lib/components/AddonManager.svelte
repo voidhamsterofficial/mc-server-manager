@@ -2,9 +2,9 @@
   import { fade } from "svelte/transition";
   import { untrack } from "svelte";
   import { Puzzle, Trash2, Moon, Sun, Search, Download, ArrowUpCircle, CircleCheck } from "@lucide/svelte";
-  import type { AddonSearchResult, AddonSource, AddonUpdateStatus, InstalledPlugin } from "../api";
+  import type { AddonSearchResult, AddonSource, AddonUpdateStatus, InstalledPlugin } from "../ipc/api";
   import { toastsStore } from "../stores/toasts.svelte";
-  import { formatBytes } from "../format";
+  import { formatBytes } from "../util/format";
   import Button from "./Button.svelte";
 
   interface SourceOption {
@@ -16,6 +16,8 @@
     serverId: string;
     /** "plugin" or "mod" — only used for copy. */
     kind: string;
+    /** Feature accent (a CSS color) for this addon type's icons. */
+    accentColor: string;
     sources: SourceOption[];
     /** True when the currently selected source needs setup (e.g. a missing
      *  CurseForge API key) before it can be browsed. */
@@ -32,6 +34,7 @@
   let {
     serverId,
     kind,
+    accentColor,
     sources,
     sourceBlocked,
     list,
@@ -201,7 +204,7 @@
       <p class="muted">Loading…</p>
     {:else if installed.length === 0}
       <div class="empty">
-        <span class="face"><Puzzle size={38} /></span>
+        <span class="face"><Puzzle size={38} color={accentColor} /></span>
         <p>No {kind}s yet — find some below!</p>
       </div>
     {:else}
@@ -308,7 +311,7 @@
                   onerror={hideBrokenIcon}
                 />
               {:else}
-                <span class="result-icon placeholder"><Puzzle size={20} /></span>
+                <span class="result-icon placeholder"><Puzzle size={20} color={accentColor} /></span>
               {/if}
               <div class="result-info">
                 <div class="result-head">

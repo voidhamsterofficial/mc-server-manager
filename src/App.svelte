@@ -25,7 +25,7 @@
   import ImportServerModal from "./lib/views/ImportServerModal.svelte";
   import { contextMenuStore, type MenuEntry } from "./lib/stores/contextMenu.svelte";
   import { openPath } from "@tauri-apps/plugin-opener";
-  import { api, type ServerConfig } from "./lib/api";
+  import { api, type ServerConfig } from "./lib/ipc/api";
   import Toasts from "./lib/components/Toasts.svelte";
   import ReasonPrompt from "./lib/components/ReasonPrompt.svelte";
   import ConfirmDialog from "./lib/components/ConfirmDialog.svelte";
@@ -36,7 +36,7 @@
   import { serversStore } from "./lib/stores/servers.svelte";
   import { statsStore } from "./lib/stores/stats.svelte";
   import { toastsStore } from "./lib/stores/toasts.svelte";
-  import { formatBytes } from "./lib/format";
+  import { formatBytes } from "./lib/util/format";
   import {
     onConsoleBatch,
     onInstallProgress,
@@ -44,7 +44,7 @@
     onStats,
     onStatusChange,
     type InstallProgressEvent,
-  } from "./lib/events";
+  } from "./lib/ipc/events";
   import { fade } from "svelte/transition";
 
   type Route =
@@ -356,14 +356,14 @@
       class:active={route.view === "docs"}
       onclick={() => (route = { view: "docs" })}
     >
-      <BookOpen size={16} /> <span>Docs</span>
+      <BookOpen size={16} color="var(--accent)" /> <span>Docs</span>
     </button>
     <button
       class="settings-item"
       class:active={route.view === "settings"}
       onclick={() => (route = { view: "settings" })}
     >
-      <Settings size={16} /> <span>Settings</span>
+      <Settings size={16} color="var(--feat-settings)" /> <span>Settings</span>
     </button>
   </aside>
 

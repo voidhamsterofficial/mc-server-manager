@@ -4,7 +4,7 @@
   // (obfuscated text scrambles just like in-game).
 
   import { onDestroy } from "svelte";
-  import { MOTD_COLORS, MOTD_FORMATS, parseMotd } from "../motd";
+  import { MOTD_COLORS, MOTD_FORMATS, parseMotd } from "../util/motd";
 
   interface Props {
     /** Editor-form text (real § characters, real newlines). */

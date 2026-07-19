@@ -1,5 +1,14 @@
 //! Server domain: configuration model, the persisted registry, and the
 //! create/delete services that orchestrate installers and disk layout.
+//!
+//! Sibling modules cover the rest of the server lifecycle: [`service`]
+//! (start/stop/restart orchestration), [`state`] (Tauri-managed app state),
+//! and [`scheduler`] (cron-driven tasks).
+
+pub mod address;
+pub mod scheduler;
+pub mod service;
+pub mod state;
 
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};

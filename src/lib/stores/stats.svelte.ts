@@ -1,6 +1,6 @@
 // Rolling resource-usage history per server, fed by `server:stats` events.
 
-import type { StatsEvent } from "../events";
+import type { StatsEvent } from "../ipc/events";
 
 /** ~3 minutes of history at the 2s sample interval. */
 const MAX_SAMPLES = 90;

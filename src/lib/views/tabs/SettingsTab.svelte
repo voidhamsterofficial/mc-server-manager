@@ -8,15 +8,15 @@
     type JavaInstall,
     type Property,
     type ServerConfig,
-  } from "../../api";
-  import { decodeMotdProperty, encodeMotdProperty } from "../../motd";
+  } from "../../ipc/api";
+  import { decodeMotdProperty, encodeMotdProperty } from "../../util/motd";
   import MotdEditor from "../../components/MotdEditor.svelte";
   import {
     MEMORY_MAX_MB,
     MEMORY_MIN_MB,
     MEMORY_STEP_MB,
     SERVER_NAME_MAX_LENGTH,
-  } from "../../constants";
+  } from "../../util/constants";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
   import Button from "../../components/Button.svelte";
@@ -232,7 +232,7 @@
 
 <div class="settings-tab">
   <section class="card">
-    <h3><Server size={18} /> Server</h3>
+    <h3><Server size={18} color="var(--accent)" /> Server</h3>
     <div class="config-grid">
       <label>
         <span>Name</span>
@@ -317,7 +317,7 @@
     <section class="card">
       <div class="icon-motd-grid">
         <div class="icon-block">
-          <h3><Image size={18} /> Server icon</h3>
+          <h3><Image size={18} color="var(--accent)" /> Server icon</h3>
         <div class="icon-row">
           {#if iconDataUrl}
             <img class="icon-preview" src={iconDataUrl} alt="Server icon" width="64" height="64" />
@@ -338,7 +338,7 @@
       </div>
 
         <div class="motd-block">
-          <h3><MessageSquare size={18} /> MOTD</h3>
+          <h3><MessageSquare size={18} color="var(--accent)" /> MOTD</h3>
           <MotdEditor
             value={motdValue}
             onchange={(text) => setValue("motd", encodeMotdProperty(text))}
@@ -351,7 +351,7 @@
 
   <section class="card props-card">
     <div class="props-head">
-      <h3><NotebookText size={18} /> server.properties</h3>
+      <h3><NotebookText size={18} color="var(--accent)" /> server.properties</h3>
       <input class="filter" type="text" bind:value={filterText} placeholder="Filter keys…" />
     </div>
 
@@ -541,26 +541,8 @@
     color: var(--muted);
   }
 
-  input[type="text"],
-  input[type="number"],
-  select {
-    font-family: inherit;
-    font-size: 0.95rem;
-    color: var(--text);
-    background: var(--surface-2);
-    border: 2px solid transparent;
-    border-radius: var(--radius-md);
-    padding: 0.5em 0.8em;
-    outline: none;
-    transition: border-color 0.18s ease;
-  }
-
-  input[type="text"]:focus,
-  input[type="number"]:focus,
-  select:focus {
-    border-color: var(--accent);
-  }
-
+  /* Text, number, and select controls inherit the app-wide blocky style from
+     theme.css. */
   input[type="range"] {
     accent-color: var(--accent);
   }

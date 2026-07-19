@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { ServerStatus } from "../api";
-  import { STATUS_META } from "../status";
+  import type { ServerStatus } from "../ipc/api";
+  import { STATUS_META } from "../util/status";
 
   interface Props {
     status: ServerStatus;

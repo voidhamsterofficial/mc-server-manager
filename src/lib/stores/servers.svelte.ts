@@ -1,7 +1,7 @@
 // Reactive store for servers, their statuses, and console buffers.
 
-import { api, type ServerConfig, type ServerStatus } from "../api";
-import type { ConsoleLine } from "../events";
+import { api, type ServerConfig, type ServerStatus } from "../ipc/api";
+import type { ConsoleLine } from "../ipc/events";
 
 const MAX_CONSOLE_LINES = 5000;
 

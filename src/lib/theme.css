@@ -50,6 +50,24 @@
   --chart-cpu: #2e7d1f;
   --chart-mem: #0277bd;
 
+  /* Feature accents — one hue per area of the app, so an icon reads the same
+     everywhere that feature appears (tab nav, section headers, empty states).
+     Tuned to stay legible on the light inventory-gray surface. */
+  --feat-dashboard: #3c8527;
+  --feat-console: #5b5bd6;
+  --feat-players: #0277bd;
+  --feat-plugins: #8a3fb0;
+  --feat-mods: #b5651d;
+  --feat-files: #a67c00;
+  --feat-settings: #55555c;
+  --feat-backups: #1a8a7a;
+  --feat-scheduler: #b0417a;
+
+  /* The dropdown chevron, tinted to match --muted so it follows the theme.
+     Native select arrows are removed (appearance: none) and this drawn in
+     their place, so dropdowns match the app's own icon set. */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2355555c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+
   /* Blocky: small radii, hard offset shadows, inset bevels on panels. */
   --radius-lg: 8px;
   --radius-md: 6px;
@@ -95,6 +113,19 @@
 
     --chart-cpu: #6fd14b;
     --chart-mem: #4fc3f7;
+
+    /* Brighter feature accents for the dark charcoal surface. */
+    --feat-dashboard: #62c94a;
+    --feat-console: #9aa0ff;
+    --feat-players: #4fc3f7;
+    --feat-plugins: #c79cf0;
+    --feat-mods: #ffa94d;
+    --feat-files: #ffcf4d;
+    --feat-settings: #a9a9b3;
+    --feat-backups: #4fd6c0;
+    --feat-scheduler: #ff92c2;
+
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23a5a5ad' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 
     --shadow-soft:
       inset 0 2px 0 rgba(255, 255, 255, 0.05),
@@ -178,6 +209,61 @@ input,
 select,
 textarea {
   user-select: text;
+}
+
+/* One blocky, recessed style for every text field, number field, and dropdown
+   — the single source of truth so no control falls back to the OS default.
+   Native select arrows and number spinners are stripped (appearance: none)
+   and replaced with the app's own chevron, so nothing OS-default pokes through
+   the custom UI. Components size and place these; they no longer restyle them. */
+input[type="text"],
+input[type="number"],
+input[type="search"],
+input[type="password"],
+select {
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--text);
+  background-color: var(--surface-2);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.12);
+  padding: 0.55em 0.85em;
+  outline: none;
+  min-width: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="search"]:focus,
+input[type="password"]:focus,
+select:focus {
+  border-color: var(--accent);
+}
+
+/* Dropdowns: leave room on the right and draw our own chevron. */
+select {
+  padding-right: 2rem;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.7em center;
+  background-size: 0.7em;
+  cursor: pointer;
+}
+
+/* No native number spinners — they clash with the blocky look, and these
+   fields validate their own ranges. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
 }
 
 /* WebKit's default placeholder is a fixed light grey that all but vanishes on

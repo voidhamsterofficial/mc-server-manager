@@ -9,8 +9,8 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
-use crate::db::Db;
 use crate::servers::current_unix_time;
+use crate::storage::db::Db;
 
 /// The most recent chat lines kept per player.
 const MAX_CHAT_HISTORY: usize = 200;

@@ -14,7 +14,7 @@
   import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { getVersion } from "@tauri-apps/api/app";
-  import { api, type AppSettings, type JavaInstall, type StorageLocation } from "../api";
+  import { api, type AppSettings, type JavaInstall, type StorageLocation } from "../ipc/api";
   import { toastsStore } from "../stores/toasts.svelte";
   import Button from "../components/Button.svelte";
 

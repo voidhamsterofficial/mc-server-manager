@@ -13,7 +13,7 @@
     Moon,
     CloudSun,
   } from "@lucide/svelte";
-  import { api, type ServerConfig } from "../../api";
+  import { api, type ServerConfig } from "../../ipc/api";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
   import { contextMenuStore, type MenuEntry } from "../../stores/contextMenu.svelte";

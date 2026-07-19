@@ -2,11 +2,12 @@
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
   import { Folder, Gift, Archive, Undo2, Trash2 } from "@lucide/svelte";
-  import { api, resolveBackupsDir, type BackupInfo, type ServerConfig } from "../../api";
-  import { onBackupCreated } from "../../events";
+  import { api, resolveBackupsDir, type BackupInfo, type ServerConfig } from "../../ipc/api";
+  import { onBackupCreated } from "../../ipc/events";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
-  import { formatBytes, formatDateTime } from "../../format";
+  import { formatBytes, formatDateTime } from "../../util/format";
+  import { FEATURE_COLOR } from "../../util/features";
   import Button from "../../components/Button.svelte";
 
   interface Props {
@@ -107,7 +108,7 @@
 
   {#if backups.length === 0}
     <div class="empty" in:fade={{ duration: 120 }}>
-      <span class="face"><Archive size={40} /></span>
+      <span class="face"><Archive size={40} color={FEATURE_COLOR.backups} /></span>
       <p>No backups yet — make your first one, future-you will be grateful!</p>
     </div>
   {:else}

@@ -1,9 +1,10 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
   import { Plus, Clock, Pencil, Trash2 } from "@lucide/svelte";
-  import { api, type ScheduledTask, type ServerConfig, type TaskAction } from "../../api";
+  import { api, type ScheduledTask, type ServerConfig, type TaskAction } from "../../ipc/api";
   import { toastsStore } from "../../stores/toasts.svelte";
-  import { formatDateTime } from "../../format";
+  import { formatDateTime } from "../../util/format";
+  import { FEATURE_COLOR } from "../../util/features";
   import Button from "../../components/Button.svelte";
 
   interface Props {
@@ -229,7 +230,7 @@
 
   {#if myTasks.length === 0 && !editing}
     <div class="empty" in:fade={{ duration: 120 }}>
-      <span class="face"><Clock size={40} /></span>
+      <span class="face"><Clock size={40} color={FEATURE_COLOR.scheduler} /></span>
       <p>Nothing scheduled — add a nightly backup or a friendly hourly broadcast!</p>
     </div>
   {:else}
@@ -306,23 +307,7 @@
     color: var(--muted);
   }
 
-  input[type="text"],
-  select {
-    font-family: inherit;
-    font-size: 0.95rem;
-    color: var(--text);
-    background: var(--surface-2);
-    border: 2px solid transparent;
-    border-radius: var(--radius-md);
-    padding: 0.5em 0.8em;
-    outline: none;
-    transition: border-color 0.18s ease;
-  }
-
-  input[type="text"]:focus,
-  select:focus {
-    border-color: var(--accent);
-  }
+  /* Text and select controls inherit the app-wide blocky style from theme.css. */
 
   .editor-footer {
     display: flex;

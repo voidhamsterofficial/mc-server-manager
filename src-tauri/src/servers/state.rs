@@ -12,13 +12,13 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
-use crate::db::Db;
 use crate::error::AppResult;
+use crate::players::roster::RosterStore;
 use crate::process::RunningMap;
-use crate::roster::RosterStore;
-use crate::scheduler::{self, ScheduledTask};
+use crate::servers::scheduler::{self, ScheduledTask};
 use crate::servers::{self, ServerConfig, ServerRegistry};
-use crate::settings;
+use crate::storage::db::Db;
+use crate::storage::settings;
 
 const SERVERS_DIR_NAME: &str = "servers";
 const BACKUPS_DIR_NAME: &str = "backups";
@@ -55,7 +55,7 @@ impl AppState {
         std::fs::create_dir_all(data_dir.join(SERVERS_DIR_NAME))?;
         std::fs::create_dir_all(data_dir.join(MANAGED_JAVA_DIR_NAME))?;
 
-        let db_path = crate::db::resolve_db_path(app)?;
+        let db_path = crate::storage::db::resolve_db_path(app)?;
         let db = Db::open(db_path)?;
 
         // First run: seed a sensible default server location.

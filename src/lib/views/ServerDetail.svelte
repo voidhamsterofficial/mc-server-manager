@@ -17,7 +17,8 @@
     Blocks,
     Save,
   } from "@lucide/svelte";
-  import { api, supportsMods, supportsPlugins, type ServerConfig } from "../api";
+  import { api, supportsMods, supportsPlugins, type ServerConfig } from "../ipc/api";
+  import { FEATURE_COLOR } from "../util/features";
   import { serversStore } from "../stores/servers.svelte";
   import { toastsStore } from "../stores/toasts.svelte";
   import StatusBlob from "../components/StatusBlob.svelte";
@@ -160,7 +161,7 @@
         class:active={activeTab === tab.id}
         onclick={() => (activeTab = tab.id)}
       >
-        <tab.icon size={16} />
+        <tab.icon size={16} color={FEATURE_COLOR[tab.id]} />
         {tab.label}
       </button>
     {/each}
@@ -278,5 +279,10 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    /* `overflow-y: auto` makes overflow-x compute to `auto` too, which clips
+       anything sitting flush against the edges — including the 2px outset
+       outline on buttons at the very left (e.g. the console's quick-commands
+       button). A few px of padding gives those outlines room to render. */
+    padding: 3px;
   }
 </style>

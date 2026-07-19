@@ -1,29 +1,15 @@
-mod addon;
-mod backups;
+mod addons;
 mod commands;
-mod console;
-mod db;
 mod error;
 mod events;
-mod files;
-mod fsutil;
 mod installers;
 mod java;
-mod mods;
 mod platform;
-mod playerdata;
-mod plugins;
+mod players;
 mod portforward;
 mod process;
-mod properties;
-mod roster;
-mod scheduler;
 mod servers;
-mod service;
-mod settings;
-mod sources;
-mod state;
-mod stats;
+mod storage;
 
 use tauri::Manager;
 
@@ -56,12 +42,12 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let app_state = state::AppState::initialize(app.handle())?;
+            let app_state = servers::state::AppState::initialize(app.handle())?;
             let running = std::sync::Arc::clone(&app_state.running);
             app.manage(app_state);
 
-            stats::spawn_sampler(app.handle().clone(), running);
-            scheduler::spawn_scheduler(app.handle().clone());
+            process::stats::spawn_sampler(app.handle().clone(), running);
+            servers::scheduler::spawn_scheduler(app.handle().clone());
 
             // Clean up any server processes a previous crash left orphaned.
             let orphan_sweep_handle = app.handle().clone();

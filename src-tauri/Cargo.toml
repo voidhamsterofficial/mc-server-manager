@@ -1,6 +1,6 @@
 [package]
 name = "mc-server-manager"
-version = "1.6.0"
+version = "1.7.0"
 description = "Blockparty — a cute, fast, cross-platform Minecraft server manager"
 authors = ["Sam"]
 edition = "2021"

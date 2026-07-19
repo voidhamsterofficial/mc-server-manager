@@ -12,7 +12,7 @@ use std::path::Path;
 use flate2::read::GzDecoder;
 use serde::Deserialize;
 
-use crate::properties;
+use crate::storage::properties;
 
 /// One entry of the server's `usercache.json`.
 #[derive(Debug, Deserialize)]

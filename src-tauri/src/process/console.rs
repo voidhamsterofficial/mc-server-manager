@@ -215,10 +215,14 @@ fn kicked_player_name(message: &str) -> Option<String> {
     Some(name.to_string())
 }
 
-/// Returns the message portion after the last `]: ` marker, e.g.
+/// Returns the message portion after the first `]: ` marker, e.g.
 /// `[12:00:00] [Server thread/INFO]: Done (3.1s)!` -> `Done (3.1s)!`.
+///
+/// Anchors on the first marker (which closes the log-level prefix) rather than
+/// the last, so a chat message that itself contains `]: ` is returned intact
+/// instead of being truncated to whatever follows its own `]: `.
 fn message_body(line: &str) -> Option<&str> {
-    let marker_position = line.rfind("]: ")?;
+    let marker_position = line.find("]: ")?;
     let body = &line[marker_position + 3..];
     Some(body)
 }
@@ -483,7 +487,12 @@ fn apply_extended_color(numbers: &[u32], builder: &mut SpanBuilder) -> usize {
         return 3;
     }
     if numbers.get(1) == Some(&2) && numbers.len() >= 5 {
-        let color = format!("#{:02X}{:02X}{:02X}", numbers[2], numbers[3], numbers[4]);
+        // SGR values are 8-bit; clamp so out-of-range input can't produce a
+        // malformed hex string with more than two digits per channel.
+        let red = numbers[2].min(255);
+        let green = numbers[3].min(255);
+        let blue = numbers[4].min(255);
+        let color = format!("#{red:02X}{green:02X}{blue:02X}");
         builder.set_color(Some(color));
         return 5;
     }

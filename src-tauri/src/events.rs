@@ -13,7 +13,7 @@ pub const INSTALL_PROGRESS: &str = "install:progress";
 /// Online player list changed: [`crate::process::PlayersEvent`].
 pub const SERVER_PLAYERS: &str = "server:players";
 
-/// Periodic resource usage sample: [`crate::stats::StatsEvent`].
+/// Periodic resource usage sample: [`crate::process::stats::StatsEvent`].
 pub const SERVER_STATS: &str = "server:stats";
 
 /// A backup finished for a server (payload: the server id string).

@@ -3,7 +3,7 @@
 
 import { Rocket, Sparkles, Hourglass, Moon, Bomb } from "@lucide/svelte";
 import type { Component } from "svelte";
-import type { ServerStatus } from "./api";
+import type { ServerStatus } from "../ipc/api";
 
 export interface StatusMeta {
   label: string;

@@ -11,11 +11,12 @@
     Timer,
     DoorOpen,
   } from "@lucide/svelte";
-  import { api, type RosterEntry, type ServerConfig } from "../../api";
+  import { api, type RosterEntry, type ServerConfig } from "../../ipc/api";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
-  import { formatDateTime, formatUptime } from "../../format";
-  import { commandArg, commandText } from "../../commands";
+  import { formatDateTime, formatUptime } from "../../util/format";
+  import { commandArg, commandText } from "../../ipc/commands";
+  import { FEATURE_COLOR } from "../../util/features";
   import { reasonPromptStore } from "../../stores/reasonPrompt.svelte";
   import Button from "../../components/Button.svelte";
   import PlayerDetailModal from "../../components/PlayerDetailModal.svelte";
@@ -159,7 +160,7 @@
 
   {#if canCommand && players.length === 0}
     <div class="empty" in:fade={{ duration: 120 }}>
-      <span class="face"><UserX size={40} /></span>
+      <span class="face"><UserX size={40} color={FEATURE_COLOR.players} /></span>
       <p>No players online right now.</p>
     </div>
   {:else if canCommand}

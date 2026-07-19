@@ -2,7 +2,7 @@
   import { fade } from "svelte/transition";
   import { Plus } from "@lucide/svelte";
   import { serversStore } from "../stores/servers.svelte";
-  import type { ServerConfig } from "../api";
+  import type { ServerConfig } from "../ipc/api";
   import ServerCard from "../components/ServerCard.svelte";
   import Button from "../components/Button.svelte";
   import GrassBlock from "../components/GrassBlock.svelte";

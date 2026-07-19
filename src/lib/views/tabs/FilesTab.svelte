@@ -11,10 +11,10 @@
     FileText,
     Package,
   } from "@lucide/svelte";
-  import { api, type DirEntry, type ServerConfig } from "../../api";
+  import { api, type DirEntry, type ServerConfig } from "../../ipc/api";
   import { toastsStore } from "../../stores/toasts.svelte";
   import { contextMenuStore, type MenuEntry } from "../../stores/contextMenu.svelte";
-  import { formatBytes } from "../../format";
+  import { formatBytes } from "../../util/format";
   import Button from "../../components/Button.svelte";
 
   interface Props {
@@ -201,11 +201,11 @@
             >
               <span class="entry-icon">
                 {#if entry.isDir}
-                  <Folder size={17} />
+                  <Folder size={17} color="var(--feat-files)" />
                 {:else if isTextFile(entry.name)}
-                  <FileText size={17} />
+                  <FileText size={17} color="var(--feat-console)" />
                 {:else}
-                  <Package size={17} />
+                  <Package size={17} color="var(--feat-mods)" />
                 {/if}
               </span>
               <span class="entry-name">{entry.name}</span>

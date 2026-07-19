@@ -4,13 +4,13 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::addon;
+use crate::addons;
+use crate::addons::sources::{self, AddonSearchResult, InstalledAddonVersion, MarketplaceContext};
 use crate::error::AppResult;
 use crate::installers::ProgressCallback;
-use crate::sources::{self, AddonSearchResult, InstalledAddonVersion, MarketplaceContext};
 
-pub use crate::addon::InstalledAddon as InstalledPlugin;
-pub use crate::sources::AddonUpdateStatus as PluginUpdateStatus;
+pub use crate::addons::sources::AddonUpdateStatus as PluginUpdateStatus;
+pub use crate::addons::InstalledAddon as InstalledPlugin;
 
 const PLUGINS_DIR: &str = "plugins";
 /// Modrinth/Spiget tag this software falls under.
@@ -21,15 +21,15 @@ fn plugins_dir(server_dir: &Path) -> PathBuf {
 }
 
 pub fn list_installed(server_dir: &Path) -> AppResult<Vec<InstalledPlugin>> {
-    addon::list_installed(&plugins_dir(server_dir))
+    addons::list_installed(&plugins_dir(server_dir))
 }
 
 pub fn set_enabled(server_dir: &Path, file_name: &str, enabled: bool) -> AppResult<String> {
-    addon::set_enabled(&plugins_dir(server_dir), file_name, enabled)
+    addons::set_enabled(&plugins_dir(server_dir), file_name, enabled)
 }
 
 pub fn delete(server_dir: &Path, file_name: &str) -> AppResult<()> {
-    addon::delete(&plugins_dir(server_dir), file_name)
+    addons::delete(&plugins_dir(server_dir), file_name)
 }
 
 /// Searches a marketplace for plugins compatible with `ctx`'s loader facet
@@ -66,7 +66,7 @@ pub async fn install(
 pub async fn check_for_updates(
     client: &reqwest::Client,
     server_dir: &Path,
-    records: &[crate::db::PluginInstallRecord],
+    records: &[crate::storage::db::PluginInstallRecord],
 ) -> AppResult<Vec<PluginUpdateStatus>> {
     let installed = list_installed(server_dir)?;
     Ok(sources::check_for_updates(client, &installed, records, None).await)

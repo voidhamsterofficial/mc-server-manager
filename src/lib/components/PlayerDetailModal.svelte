@@ -1,9 +1,9 @@
 <script lang="ts">
   import { Ban, ShieldCheck, Crown, LogOut, MessageSquare } from "@lucide/svelte";
-  import { api, type PlayerDetail } from "../api";
+  import { api, type PlayerDetail } from "../ipc/api";
   import { toastsStore } from "../stores/toasts.svelte";
-  import { formatDateTime, formatUptime } from "../format";
-  import { commandArg, commandText } from "../commands";
+  import { formatDateTime, formatUptime } from "../util/format";
+  import { commandArg, commandText } from "../ipc/commands";
   import { reasonPromptStore } from "../stores/reasonPrompt.svelte";
   import Modal from "./Modal.svelte";
   import Button from "./Button.svelte";

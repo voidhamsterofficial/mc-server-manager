@@ -9,10 +9,10 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::addon::{self, InstalledAddon};
-use crate::db::PluginInstallRecord;
+use crate::addons::{self, InstalledAddon};
 use crate::error::{AppError, AppResult};
 use crate::installers::{download_file, ExpectedChecksum, ProgressCallback};
+use crate::storage::db::PluginInstallRecord;
 
 /// Which marketplace an addon was found on or installed from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -232,7 +232,7 @@ pub mod modrinth {
             .or_else(|| version.files.first())
             .ok_or_else(|| AppError::Process("Modrinth version has no files".to_string()))?;
 
-        let file_name = addon::safe_file_name(&file.filename)?.to_string();
+        let file_name = addons::safe_file_name(&file.filename)?.to_string();
         std::fs::create_dir_all(dir)?;
         let destination = dir.join(&file_name);
 
@@ -251,7 +251,7 @@ pub mod modrinth {
             .unwrap_or(0);
         Ok(InstalledAddonVersion {
             addon: InstalledAddon {
-                display_name: addon::display_name(&file_name),
+                display_name: addons::display_name(&file_name),
                 enabled: true,
                 size_bytes,
                 file_name,
@@ -398,7 +398,7 @@ pub mod spigot {
         }
         let version = latest(client, resource_id).await?;
 
-        let file_name = addon::sanitize_jar_name(&resource.name, resource_id);
+        let file_name = addons::sanitize_jar_name(&resource.name, resource_id);
         std::fs::create_dir_all(dir)?;
         let destination = dir.join(&file_name);
 
@@ -416,7 +416,7 @@ pub mod spigot {
             .unwrap_or(0);
         Ok(InstalledAddonVersion {
             addon: InstalledAddon {
-                display_name: addon::display_name(&file_name),
+                display_name: addons::display_name(&file_name),
                 enabled: true,
                 size_bytes,
                 file_name,
@@ -634,7 +634,7 @@ pub mod curseforge {
             )
         })?;
 
-        let file_name = addon::safe_file_name(&file.file_name)?.to_string();
+        let file_name = addons::safe_file_name(&file.file_name)?.to_string();
         std::fs::create_dir_all(dir)?;
         let destination = dir.join(&file_name);
 
@@ -652,7 +652,7 @@ pub mod curseforge {
             .unwrap_or(0);
         Ok(InstalledAddonVersion {
             addon: InstalledAddon {
-                display_name: addon::display_name(&file_name),
+                display_name: addons::display_name(&file_name),
                 enabled: true,
                 size_bytes,
                 file_name,

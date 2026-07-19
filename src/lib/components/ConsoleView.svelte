@@ -5,7 +5,7 @@
 
   import { onMount } from "svelte";
   import { Copy, FileText, Terminal } from "@lucide/svelte";
-  import type { ConsoleLine } from "../events";
+  import type { ConsoleLine } from "../ipc/events";
   import { contextMenuStore, type MenuEntry } from "../stores/contextMenu.svelte";
   import { toastsStore } from "../stores/toasts.svelte";
 

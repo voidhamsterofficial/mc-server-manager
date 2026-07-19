@@ -1,12 +1,12 @@
 <script lang="ts">
   import { Link2, Globe } from "@lucide/svelte";
-  import { api, type ServerAddress, type ServerConfig } from "../../api";
+  import { api, type ServerAddress, type ServerConfig } from "../../ipc/api";
   import { serversStore } from "../../stores/servers.svelte";
   import { statsStore } from "../../stores/stats.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
   import { portForwardStore } from "../../stores/portForward.svelte";
-  import { formatBytes, formatDateTime, formatUptime } from "../../format";
-  import { STATUS_META } from "../../status";
+  import { formatBytes, formatDateTime, formatUptime } from "../../util/format";
+  import { STATUS_META } from "../../util/status";
   import StatTile from "../../components/StatTile.svelte";
   import Sparkline from "../../components/Sparkline.svelte";
   import Button from "../../components/Button.svelte";

@@ -5,6 +5,14 @@
 //!
 //! Enable/disable is done by renaming `foo.jar` <-> `foo.jar.disabled`, the
 //! convention Bukkit- and Forge-family loaders already understand.
+//!
+//! Sibling modules cover where addons come from: [`sources`] (the Modrinth /
+//! SpigotMC / CurseForge marketplaces) and the [`plugins`] / [`mods`] folder
+//! wrappers built on top of it.
+
+pub mod mods;
+pub mod plugins;
+pub mod sources;
 
 use std::path::Path;
 

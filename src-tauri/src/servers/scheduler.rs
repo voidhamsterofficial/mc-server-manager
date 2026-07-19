@@ -9,11 +9,11 @@ use croner::Cron;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-use crate::db::Db;
 use crate::error::{AppError, AppResult};
 use crate::process;
-use crate::service;
-use crate::state::AppState;
+use crate::servers::service;
+use crate::servers::state::AppState;
+use crate::storage::db::Db;
 
 /// Key in `kv_settings` holding the JSON array of all scheduled tasks.
 const TASKS_KEY: &str = "scheduled_tasks";

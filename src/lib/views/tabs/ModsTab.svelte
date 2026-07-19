@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { api, type ServerConfig } from "../../api";
+  import { api, type ServerConfig } from "../../ipc/api";
+  import { FEATURE_COLOR } from "../../util/features";
   import AddonManager from "../../components/AddonManager.svelte";
 
   interface Props {
@@ -27,6 +28,7 @@
 <AddonManager
   serverId={server.id}
   kind="mod"
+  accentColor={FEATURE_COLOR.mods}
   sources={[
     { value: "modrinth", label: "Modrinth" },
     { value: "curseforge", label: "CurseForge" },

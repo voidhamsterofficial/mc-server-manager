@@ -1,5 +1,10 @@
 //! Running-server process management: spawning the Java child, streaming its
-//! console output to the UI in batches, and orchestrating shutdown.
+//! console output to the UI in batches, and orchestrating shutdown. Sibling
+//! modules cover [`console`] (log parsing/coloring) and [`stats`] (periodic
+//! CPU/memory sampling of the running processes).
+
+pub mod console;
+pub mod stats;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -13,11 +18,11 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
-use crate::console::{self, ConsoleLine, ConsoleSignal, ConsoleSpan, LogLevel};
 use crate::error::{AppError, AppResult};
 use crate::events;
 use crate::installers::vanilla::SERVER_JAR_NAME;
 use crate::platform;
+use crate::process::console::{ConsoleLine, ConsoleSignal, ConsoleSpan, LogLevel};
 use crate::servers::{Loader, ServerConfig, ServerStatus};
 
 /// How long buffered console lines wait before being flushed to the UI.
@@ -175,10 +180,7 @@ async fn reclaim_orphaned_server(app: &AppHandle, server_id: &str, server_dir: &
 
     let is_java_process = system
         .process(pid)
-        .map(|process| {
-            let name = process.name().to_string_lossy().to_lowercase();
-            name.contains("java")
-        })
+        .map(process_name_is_java)
         .unwrap_or(false);
     if !is_java_process {
         // Process is gone (or the OS reused the PID) — just clean up.
@@ -216,7 +218,7 @@ async fn reclaim_orphaned_server(app: &AppHandle, server_id: &str, server_dir: &
 /// ports, memory) until each is individually restarted. This cleans them all up
 /// once, off the startup path.
 pub async fn reclaim_all_orphans(app: AppHandle) {
-    let state = app.state::<crate::state::AppState>();
+    let state = app.state::<crate::servers::state::AppState>();
     let servers: Vec<(String, std::path::PathBuf)> = {
         let registry = state.registry.lock().await;
         registry
@@ -300,13 +302,18 @@ pub async fn kill_all_blockparty_java(
     }
 }
 
+/// Whether a process's executable name looks like a Java runtime.
+fn process_name_is_java(process: &sysinfo::Process) -> bool {
+    let name = process.name().to_string_lossy().to_lowercase();
+    name.contains("java")
+}
+
 fn is_blockparty_java(
     process: &sysinfo::Process,
     managed_java_dir: &Path,
     server_dirs: &[std::path::PathBuf],
 ) -> bool {
-    let name = process.name().to_string_lossy().to_lowercase();
-    if !name.contains("java") {
+    if !process_name_is_java(process) {
         return false;
     }
 
@@ -325,14 +332,18 @@ fn is_blockparty_java(
 /// Requests a graceful stop (`stop` command) and schedules a force-kill in
 /// case the server hangs on the way down.
 pub async fn stop(app: &AppHandle, running: &RunningMap, server_id: &str) -> AppResult<()> {
-    let (command_tx, stop_command) = {
+    let (command_tx, stop_command, run_started_at) = {
         let mut running_guard = running.lock().await;
         let handle = running_guard
             .get_mut(server_id)
             .ok_or(AppError::ServerNotRunning)?;
         handle.stop_requested = true;
         handle.status = ServerStatus::Stopping;
-        (handle.command_tx.clone(), handle.stop_command)
+        (
+            handle.command_tx.clone(),
+            handle.stop_command,
+            handle.started_at,
+        )
     };
     emit_status(app, server_id, ServerStatus::Stopping);
 
@@ -342,7 +353,7 @@ pub async fn stop(app: &AppHandle, running: &RunningMap, server_id: &str) -> App
         // already going down; the scheduled force-kill still applies.
     }
 
-    schedule_force_kill(running, server_id);
+    schedule_force_kill(running, server_id, run_started_at);
     Ok(())
 }
 
@@ -594,13 +605,42 @@ fn take_pipe<T>(pipe: Option<T>) -> AppResult<T> {
 }
 
 /// Reads one output stream line-by-line into the shared line channel.
+///
+/// Reads raw bytes and decodes them lossily rather than using `lines()`, so a
+/// single non-UTF-8 byte (e.g. from a mod's output or a non-UTF-8 locale) can
+/// no longer abort the stream and freeze the console for the rest of the run.
 async fn forward_lines<R: AsyncRead + Unpin>(stream: R, line_tx: mpsc::Sender<String>) {
-    let mut lines = BufReader::new(stream).lines();
-    while let Ok(Some(line)) = lines.next_line().await {
+    let mut reader = BufReader::new(stream);
+    let mut buffer = Vec::new();
+
+    loop {
+        buffer.clear();
+        let read_result = reader.read_until(b'\n', &mut buffer).await;
+        match read_result {
+            Ok(0) => return, // End of stream.
+            Ok(_) => {}
+            Err(error) => {
+                log::warn!("error reading server output stream: {error}");
+                return;
+            }
+        }
+
+        trim_trailing_newline(&mut buffer);
+        let line = String::from_utf8_lossy(&buffer).into_owned();
         let receiver_alive = line_tx.send(line).await.is_ok();
         if !receiver_alive {
             return;
         }
+    }
+}
+
+/// Removes a trailing `\n` or `\r\n` in place, matching `lines()` semantics.
+fn trim_trailing_newline(buffer: &mut Vec<u8>) {
+    if buffer.last() == Some(&b'\n') {
+        buffer.pop();
+    }
+    if buffer.last() == Some(&b'\r') {
+        buffer.pop();
     }
 }
 
@@ -667,18 +707,18 @@ async fn ingest_line(
             record_player_change(app, running, server_id, PlayerChange::Left(player_name)).await;
         }
         Some(ConsoleSignal::PlayerKicked(player_name)) => {
-            let state = app.state::<crate::state::AppState>();
+            let state = app.state::<crate::servers::state::AppState>();
             state.rosters.record_kick(server_id, &player_name).await;
         }
         Some(ConsoleSignal::ChatMessage { player, message }) => {
-            let state = app.state::<crate::state::AppState>();
+            let state = app.state::<crate::servers::state::AppState>();
             state
                 .rosters
                 .record_chat(server_id, &player, &message)
                 .await;
         }
         Some(ConsoleSignal::GameModeChanged { player, mode }) => {
-            let state = app.state::<crate::state::AppState>();
+            let state = app.state::<crate::servers::state::AppState>();
             state
                 .rosters
                 .record_game_mode(server_id, &player, &mode)
@@ -734,7 +774,7 @@ async fn supervise(
     };
     emit_status(&app, &server_id, final_status);
 
-    let state = app.state::<crate::state::AppState>();
+    let state = app.state::<crate::servers::state::AppState>();
     state.rosters.close_all_sessions(&server_id).await;
 
     let empty_player_list = PlayersEvent {
@@ -755,7 +795,7 @@ async fn record_player_change(
     server_id: &str,
     change: PlayerChange,
 ) {
-    let state = app.state::<crate::state::AppState>();
+    let state = app.state::<crate::servers::state::AppState>();
     match &change {
         PlayerChange::Joined(name) => state.rosters.record_join(server_id, name).await,
         PlayerChange::Left(name) => state.rosters.record_leave(server_id, name).await,
@@ -810,14 +850,30 @@ async fn remove_handle(running: &RunningMap, server_id: &str) -> bool {
     }
 }
 
-fn schedule_force_kill(running: &RunningMap, server_id: &str) {
+fn schedule_force_kill(running: &RunningMap, server_id: &str, run_started_at: std::time::Instant) {
     let running = Arc::clone(running);
     let server_id = server_id.to_string();
 
     tokio::spawn(async move {
         tokio::time::sleep(GRACEFUL_STOP_TIMEOUT).await;
-        send_kill_signal(&running, &server_id).await;
+        force_kill_run(&running, &server_id, run_started_at).await;
     });
+}
+
+/// Force-kills the server only if the instance currently holding this id is
+/// the same run the timeout was scheduled for. Without this guard, a server
+/// that exits cleanly and is restarted (reusing its id) within the grace
+/// period would be killed by the previous run's stale timeout.
+async fn force_kill_run(running: &RunningMap, server_id: &str, run_started_at: std::time::Instant) {
+    let mut running_guard = running.lock().await;
+    let Some(handle) = running_guard.get_mut(server_id) else {
+        return;
+    };
+    if handle.started_at != run_started_at {
+        // A different run now holds this id; the old timeout no longer applies.
+        return;
+    }
+    signal_handle_kill(handle);
 }
 
 /// Signals the supervisor to kill the process. Returns whether the server
@@ -828,12 +884,18 @@ async fn send_kill_signal(running: &RunningMap, server_id: &str) -> bool {
         return false;
     };
 
+    signal_handle_kill(handle);
+    true
+}
+
+/// Marks the handle as intentionally stopped and delivers the one-shot kill
+/// signal to its supervisor, if it has not already been consumed.
+fn signal_handle_kill(handle: &mut ProcessHandle) {
     handle.stop_requested = true;
     if let Some(kill_tx) = handle.kill_tx.take() {
         // The supervisor may be exiting concurrently; a lost signal is fine.
         let _delivered = kill_tx.send(());
     }
-    true
 }
 
 async fn set_status(
