@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MSIX package manifest for Microsoft Store submission.
+
+  This wraps the existing Win32 build (mc-server-manager.exe) as a "Desktop
+  Bridge" full-trust app rather than converting it to a sandboxed UWP app —
+  that's why EntryPoint is Windows.FullTrustApplication and the runFullTrust
+  capability is declared. The Store signs this package at certification time,
+  so no paid code-signing certificate is needed; the cert flag used at
+  "winapp pack" time only needs to produce a structurally valid package
+  locally.
+
+  Identity/Publisher values are fixed by Partner Center once the app is
+  reserved — do not change them without also updating the reservation.
+  Version must be bumped (4 numeric parts) on every resubmission; keep it in
+  step with the app version in tauri.conf.json / Cargo.toml (X.Y.Z -> X.Y.Z.0).
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <Identity
+    Name="Voidhamsterofficial.BlockpartyMinecraftServerManag"
+    Publisher="CN=36895946-F56A-4DAC-B627-D2FE8038FDEF"
+    Version="1.7.5.0" />
+
+  <Properties>
+    <DisplayName>Blockparty: Minecraft Server Manager</DisplayName>
+    <PublisherDisplayName>Voidhamsterofficial</PublisherDisplayName>
+    <Logo>icons\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App" Executable="mc-server-manager.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Blockparty: Minecraft Server Manager"
+        Description="A cute, fast, cross-platform Minecraft server manager"
+        BackgroundColor="transparent"
+        Square150x150Logo="icons\Square150x150Logo.png"
+        Square44x44Logo="icons\Square44x44Logo.png">
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

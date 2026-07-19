@@ -1,0 +1,74 @@
+name: Package MSIX (Microsoft Store)
+
+# Builds the Windows release binary and packages it as an MSIX for Microsoft
+# Store submission. Manual trigger only — this isn't part of the normal
+# release flow yet (see release.yml for the .exe/.msi/.dmg/.deb builds that
+# run automatically on a version tag).
+#
+# The produced .msix is uploaded as a workflow artifact, not published
+# anywhere. Download it from the finished run and upload it to the app's
+# submission page in Partner Center — the Store signs it during
+# certification, so this doesn't need a paid code-signing certificate.
+#
+# Untested end-to-end as of writing (no Windows machine was available to
+# verify winapp CLI's exact behavior) — if a step here fails, the fix is
+# almost certainly a flag/path adjustment to that step, not a redesign.
+on:
+  workflow_dispatch:
+
+jobs:
+  msix:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build release binary
+        run: cargo build --release --manifest-path src-tauri/Cargo.toml
+
+      - name: Install winapp CLI
+        run: winget install microsoft.winappcli --source winget --accept-package-agreements --accept-source-agreements
+
+      # Stage just what the MSIX needs to contain — the exe, the manifest,
+      # and the icon assets it references — rather than the whole target/
+      # directory (which is mostly build intermediates).
+      - name: Stage MSIX contents
+        run: |
+          New-Item -ItemType Directory -Force -Path msix-stage\icons | Out-Null
+          Copy-Item src-tauri\target\release\mc-server-manager.exe msix-stage\
+          Copy-Item src-tauri\Package.appxmanifest msix-stage\
+          Copy-Item src-tauri\icons\* msix-stage\icons\
+
+      # MSIX packages must be signed to be structurally valid, but the
+      # signature itself doesn't need to be trusted — the Store re-signs the
+      # package during certification. A throwaway self-signed cert is enough
+      # to produce a package that's valid to submit.
+      - name: Generate throwaway signing cert
+        working-directory: msix-stage
+        run: winapp cert generate --if-exists skip
+
+      - name: Pack MSIX
+        working-directory: msix-stage
+        run: winapp pack . --cert .\devcert.pfx
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: blockparty-msix
+          path: msix-stage/*.msix

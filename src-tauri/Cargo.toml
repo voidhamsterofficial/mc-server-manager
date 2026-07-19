@@ -1,8 +1,8 @@
 [package]
 name = "mc-server-manager"
-version = "1.7.4"
+version = "1.7.5"
 description = "Blockparty — a cute, fast, cross-platform Minecraft server manager"
-authors = ["Sam"]
+authors = ["Void"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
