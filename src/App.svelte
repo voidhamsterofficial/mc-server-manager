@@ -399,6 +399,8 @@
         <Dashboard
           onopen={(serverId) => (route = { view: "server", serverId })}
           onnew={() => (wizardOpen = true)}
+          onimport={() => (importOpen = true)}
+          ondocs={() => (route = { view: "docs" })}
           onservermenu={showServerMenu}
         />
       {/if}

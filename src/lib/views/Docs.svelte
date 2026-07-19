@@ -16,6 +16,7 @@
     LifeBuoy,
     BookOpen,
   } from "@lucide/svelte";
+  import { FEATURE_COLOR } from "../util/features";
 
   interface Props {
     /** Navigate to another app page — docs links are real links. */
@@ -37,6 +38,11 @@
     icon: Component<any>;
     title: string;
     paragraphs: Segment[][];
+    /** Matches the tab's own icon color (see util/features.ts) when this topic
+        maps onto one specific server tab. Left unset for topics that span the
+        whole app (getting started, choosing software, Java) — coloring those
+        as one feature would misrepresent them as belonging to a single tab. */
+    color?: string;
   }
 
   const TOPICS: Topic[] = [
@@ -70,7 +76,7 @@
       paragraphs: [
         [
           {
-            text: "Every major server type installs automatically: Vanilla, the Paper family (Paper, Purpur, Folia), mod loaders (Fabric, Quilt, Forge, NeoForge), hybrids (Mohist, Arclight), Bedrock, and the Velocity/BungeeCord proxies.",
+            text: "Every major server type installs automatically: Vanilla, the Paper family (Paper, Purpur, Spigot, Folia), mod loaders (Fabric, Quilt, Forge, NeoForge), hybrids (Mohist, Arclight), Bedrock, and the Velocity/BungeeCord proxies.",
           },
         ],
         [
@@ -107,6 +113,7 @@
     {
       id: "plugins",
       icon: Puzzle,
+      color: FEATURE_COLOR.plugins,
       title: "Plugins",
       paragraphs: [
         [
@@ -129,16 +136,17 @@
     {
       id: "players",
       icon: Users,
+      color: FEATURE_COLOR.players,
       title: "Players & moderation",
       paragraphs: [
         [
           {
-            text: "The Players tab manages anyone by name (whitelist, pardon, ban — works offline) and shows everyone online with one-click Op, Kick, and Ban. Bedrock servers use the allowlist automatically, and gamertags with spaces are handled for you.",
+            text: "The Players tab manages anyone by name (whitelist, pardon, ban — works offline) and shows everyone online with one-click Op and Kick. Bedrock servers use the allowlist automatically instead of the whitelist, and — since vanilla Bedrock has no ban list — skip Ban/Pardon entirely; those two are Java-only. Gamertags with spaces are handled for you either way.",
           },
         ],
         [
           {
-            text: "Player history remembers everyone who ever joined: playtime, join and kick counts, and live ban status from the server's ban list. Click any player — online or in history — to open their page: total playtime, message count, current game mode, first/last seen, everything they've said in chat, and Ban/Pardon/Op/Kick buttons.",
+            text: "Player history remembers everyone who ever joined: playtime, join and kick counts, and live ban status from the server's ban list. Click any player — online or in history — to open their page: total playtime, message count, last known game mode, first/last seen, everything they've said in chat, and Op/Kick buttons (plus Ban/Pardon on Java servers).",
           },
         ],
         [
@@ -151,6 +159,7 @@
     {
       id: "console",
       icon: Terminal,
+      color: FEATURE_COLOR.console,
       title: "Console & commands",
       paragraphs: [
         [
@@ -168,6 +177,7 @@
     {
       id: "files",
       icon: Folder,
+      color: FEATURE_COLOR.files,
       title: "Files & configs",
       paragraphs: [
         [
@@ -190,6 +200,7 @@
     {
       id: "dashboard",
       icon: House,
+      color: FEATURE_COLOR.dashboard,
       title: "The dashboard",
       paragraphs: [
         [
@@ -205,6 +216,7 @@
     {
       id: "internet",
       icon: Globe,
+      color: FEATURE_COLOR.dashboard,
       title: "Playing over the internet",
       paragraphs: [
         [
@@ -251,6 +263,7 @@
     {
       id: "backups",
       icon: Archive,
+      color: FEATURE_COLOR.backups,
       title: "Backups & restores",
       paragraphs: [
         [
@@ -268,6 +281,7 @@
     {
       id: "scheduler",
       icon: Clock,
+      color: FEATURE_COLOR.scheduler,
       title: "Scheduler",
       paragraphs: [
         [
@@ -285,6 +299,7 @@
     {
       id: "recovery",
       icon: LifeBuoy,
+      color: FEATURE_COLOR.settings,
       title: "When things go wrong",
       paragraphs: [
         [
@@ -334,14 +349,14 @@
           class:active={topic.id === activeTopicId}
           onclick={() => (activeTopicId = topic.id)}
         >
-          <topic.icon size={16} />
+          <topic.icon size={16} color={topic.color} />
           {topic.title}
         </button>
       {/each}
     </nav>
 
     <article class="content">
-      <h3><activeTopic.icon size={18} /> {activeTopic.title}</h3>
+      <h3><activeTopic.icon size={18} color={activeTopic.color} /> {activeTopic.title}</h3>
       {#each activeTopic.paragraphs as paragraph, index (index)}
         <p>
           {#each paragraph as segment, segmentIndex (segmentIndex)}

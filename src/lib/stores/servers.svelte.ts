@@ -10,6 +10,10 @@ class ServersStore {
   statuses = $state<Record<string, ServerStatus>>({});
   consoles = $state<Record<string, ConsoleLine[]>>({});
   players = $state<Record<string, string[]>>({});
+  // Distinguishes "still loading" from "confirmed empty" so the dashboard
+  // doesn't flash a first-run welcome screen before the initial fetch lands.
+  loaded = $state(false);
+  loadError = $state<string | null>(null);
 
   statusOf(serverId: string): ServerStatus {
     return this.statuses[serverId] ?? "stopped";
@@ -24,14 +28,22 @@ class ServersStore {
   }
 
   async refresh(): Promise<void> {
-    const [servers, statuses, players] = await Promise.all([
-      api.listServers(),
-      api.serverStatuses(),
-      api.serverPlayers(),
-    ]);
-    this.servers = servers;
-    this.statuses = statuses;
-    this.players = players;
+    try {
+      const [servers, statuses, players] = await Promise.all([
+        api.listServers(),
+        api.serverStatuses(),
+        api.serverPlayers(),
+      ]);
+      this.servers = servers;
+      this.statuses = statuses;
+      this.players = players;
+      this.loadError = null;
+    } catch (error) {
+      this.loadError = String(error);
+      throw error;
+    } finally {
+      this.loaded = true;
+    }
   }
 
   setStatus(serverId: string, status: ServerStatus): void {

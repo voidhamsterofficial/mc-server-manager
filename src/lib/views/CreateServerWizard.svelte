@@ -26,6 +26,11 @@
     Save,
     Folder,
     Wrench,
+    Gem,
+    Puzzle,
+    Boxes,
+    Shuffle,
+    Network,
   } from "@lucide/svelte";
   import { api, PROXY_LOADERS, type Loader, type McVersion } from "../ipc/api";
   import {
@@ -57,9 +62,19 @@
     available: boolean;
   }
 
-  const LOADER_CATALOG: { category: string; entries: CatalogEntry[] }[] = [
+  interface CatalogGroup {
+    category: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    icon: Component<any>;
+    description: string;
+    entries: CatalogEntry[];
+  }
+
+  const LOADER_CATALOG: CatalogGroup[] = [
     {
       category: "Vanilla & official",
+      icon: Gem,
+      description: "The stock experience — straight from Mojang, no plugins or mods.",
       entries: [
         {
           value: "vanilla",
@@ -79,6 +94,8 @@
     },
     {
       category: "Plugins (Bukkit ecosystem)",
+      icon: Puzzle,
+      description: "Vanilla gameplay plus plugins — the most common way to customize a server.",
       entries: [
         {
           value: "paper",
@@ -112,6 +129,8 @@
     },
     {
       category: "Mods",
+      icon: Boxes,
+      description: "Client-side mods change gameplay itself — needs a matching mod loader.",
       entries: [
         {
           value: "fabric",
@@ -145,6 +164,8 @@
     },
     {
       category: "Hybrid (mods + plugins)",
+      icon: Shuffle,
+      description: "Run mods and Bukkit plugins side by side on the same server.",
       entries: [
         {
           value: "arclight",
@@ -164,6 +185,8 @@
     },
     {
       category: "Network proxies",
+      icon: Network,
+      description: "Sit in front of multiple servers and switch players between them.",
       entries: [
         {
           value: "velocity",
@@ -187,6 +210,8 @@
   const DEFAULT_PROXY_PORT = 25577;
 
   let step = $state<"software" | "details">("software");
+  // null = showing the category picker; a category = showing that group's tiles.
+  let selectedCategory = $state<string | null>(null);
   let name = $state("");
   let loader = $state<Loader>("vanilla");
   let versions = $state<McVersion[]>([]);
@@ -211,6 +236,9 @@
   const isBedrock = $derived(loader === "bds");
   const chosenEntry = $derived(
     LOADER_CATALOG.flatMap((group) => group.entries).find((entry) => entry.value === loader),
+  );
+  const activeGroup = $derived(
+    LOADER_CATALOG.find((group) => group.category === selectedCategory) ?? null,
   );
   const hasSnapshots = $derived(versions.some((version) => version.type !== "release"));
   const visibleVersions = $derived(
@@ -333,6 +361,7 @@
 
   function resetForm() {
     step = "software";
+    selectedCategory = null;
     name = "";
     acceptEula = false;
     memoryMb = 2048;
@@ -373,36 +402,54 @@
 <Modal
   {open}
   wide
-  title={step === "software" ? "Pick your server software" : "New server"}
+  title={step === "software"
+    ? selectedCategory === null
+      ? "What kind of server?"
+      : "Pick your server software"
+    : "New server"}
   onclose={creating ? undefined : handleClose}
 >
   {#if step === "software"}
-    <div class="catalog" in:fade={{ duration: 120 }}>
-      {#each LOADER_CATALOG as group (group.category)}
-        <div class="category">
-          <h4>{group.category}</h4>
-          <div class="tiles">
-            {#each group.entries as entry (entry.value)}
-              <button
-                type="button"
-                class="tile"
-                class:unavailable={!entry.available}
-                onclick={() => chooseSoftware(entry)}
-              >
-                <span class="tile-emoji"><entry.icon size={26} /></span>
-                <span class="tile-name">
-                  {entry.label}
-                  {#if !entry.available}
-                    <span class="soon">soon</span>
-                  {/if}
-                </span>
-                <span class="tile-hint">{entry.hint}</span>
-              </button>
-            {/each}
-          </div>
+    {#if selectedCategory === null || !activeGroup}
+      <div class="categories" in:fade={{ duration: 120 }}>
+        {#each LOADER_CATALOG as group (group.category)}
+          <button
+            type="button"
+            class="category-tile"
+            onclick={() => (selectedCategory = group.category)}
+          >
+            <span class="category-icon"><group.icon size={24} /></span>
+            <span class="category-name">{group.category}</span>
+            <span class="category-desc">{group.description}</span>
+          </button>
+        {/each}
+      </div>
+    {:else}
+      <div class="catalog" in:fade={{ duration: 120 }}>
+        <button type="button" class="back-link" onclick={() => (selectedCategory = null)}>
+          <ArrowLeft size={14} /> All categories
+        </button>
+        <div class="tiles">
+          {#each activeGroup.entries as entry (entry.value)}
+            <button
+              type="button"
+              class="tile"
+              class:unavailable={!entry.available}
+              onclick={() => chooseSoftware(entry)}
+            >
+              <span class="tile-emoji"><entry.icon size={26} /></span>
+              <span class="tile-name">
+                {entry.label}
+                {#if !entry.available}
+                  <span class="soon">soon</span>
+                {/if}
+              </span>
+              <span class="tile-hint">{entry.hint}</span>
+            </button>
+          {/each}
         </div>
-      {/each}
-    </div>
+      </div>
+    {/if}
   {:else}
     <form onsubmit={submit} in:fade={{ duration: 120 }}>
       <button type="button" class="chosen" onclick={() => (step = "software")}>
@@ -556,20 +603,78 @@
 </Modal>
 
 <style>
-  /* --- Step 1: the software catalog ------------------------------------ */
+  /* --- Step 1a: the category picker --------------------------------------- */
+  .categories {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.7rem;
+  }
+
+  .category-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    border: none;
+    font-family: inherit;
+    text-align: left;
+    background: var(--surface-2);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 0.9rem 1rem;
+    cursor: pointer;
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, 0.08),
+      inset 0 -3px 0 rgba(0, 0, 0, 0.2),
+      0 0 0 2px rgba(15, 15, 18, 0.3);
+    transition: background-color var(--duration-fast) var(--ease-out);
+  }
+
+  .category-tile:hover {
+    background: var(--accent-soft);
+  }
+
+  .category-icon {
+    display: inline-flex;
+    color: var(--accent-strong);
+  }
+
+  .category-name {
+    font-family: var(--font-pixel);
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .category-desc {
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+
+  /* --- Step 1b: the chosen category's software tiles ---------------------- */
   .catalog {
     display: flex;
     flex-direction: column;
-    gap: 1.1rem;
+    gap: 0.8rem;
   }
 
-  .category h4 {
-    margin: 0 0 0.5rem;
-    font-size: 0.8rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    align-self: flex-start;
+    border: none;
+    background: none;
     color: var(--muted);
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .back-link:hover {
+    color: var(--accent);
   }
 
   .tiles {
