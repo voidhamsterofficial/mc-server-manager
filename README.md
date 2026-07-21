@@ -20,7 +20,16 @@
 
 Built with **Rust** (Tauri v2 backend) and **Svelte 5** (TypeScript UI).
 
-## ✨ Features at a Glance
+## 📸 Screenshots
+
+> Add screenshots and GIFs here to showcase ServerForge in action!
+> 
+> - Main dashboard with server list
+> - Live console with Minecraft colors
+> - Create server wizard
+> - Player management interface
+> - Plugin browser from Modrinth
+> - Settings & configuration UI
 
 <table>
 <tr>
