@@ -1,146 +1,234 @@
-# 🎈 ServerForge
+# 🎮 ServerForge
 
-A cute, fast, cross-platform **Minecraft server manager** — create, run, and manage
-Minecraft servers from a friendly desktop app instead of a terminal window.
+> **The friendliest Minecraft server manager.** Create, run, and manage servers from a beautiful desktop app—no terminal required.
 
-Built with a **Rust** backend (Tauri v2) and a **Svelte 5** UI. An open,
-cross-platform alternative to tools like MC Server Soft.
+<div align="center">
 
-## ✨ Features
+![Rust](https://img.shields.io/badge/rust-%23CE422B.svg?style=for-the-badge&logo=rust&logoColor=white)
+![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
+![Tauri](https://img.shields.io/badge/tauri-%2324C8DB.svg?style=for-the-badge&logo=tauri&logoColor=white)
+![Svelte](https://img.shields.io/badge/svelte-%23f1413d.svg?style=for-the-badge&logo=svelte&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
 
-- **Create servers in seconds** — pick a Minecraft version (fetched live from
-  Mojang), set memory, accept the EULA, done. Downloads are checksum-verified,
-  including the Forge/NeoForge/Quilt installers that are executed to set up.
-- **Start / stop / kill** with graceful shutdown (`stop` first, force-kill
-  after 30 s). Orphaned server processes are reclaimed automatically.
-- **Live console** — streamed in batches from the Rust backend, smooth with a
-  5000-line buffer, Minecraft/ANSI colors, quick-command menu, right-click to
-  copy.
-- **Plugin manager** — browse and install plugins straight from Modrinth,
-  filtered to your server's software and Minecraft version and verified against
-  their published checksums, then enable, disable, or remove them. Available for
-  the Paper family, the hybrids, and the proxies.
-- **Players & moderation** — live player list, player history pages (playtime,
-  chat log, game mode), and kick/ban with an optional recorded reason.
-- **Java auto-detection** — finds installed JVMs (PATH, `JAVA_HOME`, vendor
-  directories) and picks the right major version for each Minecraft version.
-- **Minecraft-flavoured UI** — blocky beveled buttons, a pixel font, and the
-  game's own palette, with colour-based hover/press feedback so nothing jumps
-  around under the cursor. Dark mode included; motion respects
-  `prefers-reduced-motion`.
+**Cross-platform** • **Open source** • **Free** • **Zero registry cruft**
 
-### Roadmap
+[⬇️ Download](#-download) • [🚀 Quick Start](#-quick-start) • [🧑‍💻 Contribute](#-contributing) • [📖 Docs](https://github.com/voidhamsterofficial/mc-server-manager/wiki)
 
-- [x] Automatic Temurin JRE download when no suitable Java is installed
-- [x] Online player list, kick/ban/op, whitelist editor, `server.properties` editor
-- [x] Backups (manual + scheduled), per-server retention, and a task scheduler
-- [x] Live CPU / memory / uptime dashboard
-- [x] Installers for every major server type: Vanilla, Paper, Purpur, Folia,
-  Spigot (BuildTools), Fabric, Quilt, Forge, NeoForge, Mohist, Arclight,
-  Bedrock, Velocity, and BungeeCord
-- [x] Port selection, per-server Java/JVM args/start command, server icons,
-  and an MOTD editor with live preview
-- [x] Player pages (playtime, chat history, moderation), a scoped file
-  browser/editor, a copyable LAN address, a right-click context menu, and
-  in-app docs
-- [x] Settings stored as human-readable YAML (per server, and a global file
-  beside the app) — nothing in the registry
-- [x] Plugin manager: install from Modrinth, enable/disable/remove, for the
-  Paper family (Paper, Purpur, Spigot, Folia), the hybrids (Mohist, Arclight),
-  and the Velocity/BungeeCord proxies
+</div>
 
-## 📦 Installing
+---
 
-Grab the installer for your platform from the
-[releases page](https://github.com/Squ1ggly/mc-server-manager/releases)
-(built automatically by CI when a version tag is pushed):
+Built with **Rust** (Tauri v2 backend) and **Svelte 5** (TypeScript UI). A modern, open alternative to MC Server Soft.
 
-- **Windows**: run the `.exe` (NSIS) or `.msi` installer.
-- **macOS**: open the `.dmg` and drag ServerForge to Applications. Builds are
-  unsigned, so the first launch needs right-click → Open (or
-  `xattr -dr com.apple.quarantine /Applications/serverforge.app`).
-- **Linux**: either install the `.deb` (`sudo apt install ./serverforge_*.deb`)
-  or `.rpm`, or use the portable `.AppImage`
-  (`chmod +x ServerForge_*.AppImage && ./ServerForge_*.AppImage`).
-  The deb/rpm pull in the WebKitGTK runtime automatically; the AppImage
-  bundles everything.
+## ✨ Features at a Glance
 
-Servers themselves run wherever the app runs — the same Java auto-download
-works on all three platforms.
+<table>
+<tr>
+<td width="50%">
 
-## 🚀 Developing
+#### 🖱️ **Dead Simple**
+- Create servers in **seconds**—pick version, set memory, done
+- Live version list pulled fresh from Mojang
+- Auto-detect Java or download Temurin JRE
+- Settings stored as readable YAML (not the registry 🎉)
 
-Prerequisites: [Rust](https://rustup.rs), [Node.js](https://nodejs.org), and the
-[Tauri CLI](https://tauri.app) (`cargo install tauri-cli`). On Linux you also
-need the WebKitGTK dev packages
-([full list](https://tauri.app/start/prerequisites/#linux)):
+</td>
+<td width="50%">
 
+#### 🎮 **Full Control**
+- Start, stop, force-kill with graceful shutdown
+- Live console with colors, 5000-line buffer, quick-command menu
+- Player list, history, playtime tracking, kick/ban/op
+- Whitelist & server.properties editor
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+#### 🧩 **Plugin Ready**
+- Browse & install plugins from **Modrinth** in one click
+- Filtered by server software & MC version
+- Enable, disable, remove—no restart needed for most
+- Supports Paper, Purpur, Spigot, Folia, Fabric, Quilt + more
+
+</td>
+<td width="50%">
+
+#### ⚙️ **Built for Production**
+- Checksum-verified downloads (server JARs & installers)
+- Automatic backups with per-server retention
+- Scheduled tasks (cron-style backup automation)
+- CPU/memory/uptime live dashboard
+- Port forwarding (UPnP) with CGNAT detection
+
+</td>
+</tr>
+</table>
+
+**Supports 16 server types:** Vanilla, Paper, Purpur, Folia, Spigot (BuildTools), Fabric, Quilt, Forge, NeoForge, Mohist, Arclight, Bedrock, Velocity, BungeeCord, and more.
+
+**Minecraft-flavoured UI:** Blocky buttons, pixel font, game-accurate colors, dark mode, respects `prefers-reduced-motion`. It feels like Minecraft. 🧱
+
+## ⬇️ Download
+
+| Platform | Installer | Format |
+|----------|-----------|--------|
+| **Windows** | [Download](https://github.com/voidhamsterofficial/mc-server-manager/releases) | `.exe` (NSIS) or `.msi` |
+| **macOS** | [Download](https://github.com/voidhamsterofficial/mc-server-manager/releases) | `.dmg` (unsigned; first launch: right-click → Open) |
+| **Linux** | [Download](https://github.com/voidhamsterofficial/mc-server-manager/releases) | `.deb`, `.rpm`, or `.AppImage` |
+
+> **Java included!** Servers run anywhere the app runs. Java auto-detection works on all platforms—or we'll download Temurin JRE for you.
+
+## 🚀 Quick Start
+
+### For Users
+
+1. **Grab the installer** → [Releases](https://github.com/voidhamsterofficial/mc-server-manager/releases)
+2. **Run it** → App launches with setup wizard
+3. **Create a server** → Click **+ New Server**, pick Minecraft version & type, set memory
+4. **Click Start** → Live console streams in. That's it! ✨
+
+No terminal. No config files. Just click and play.
+
+### For Developers
+
+**Prerequisites:** [Rust](https://rustup.rs), [Node.js](https://nodejs.org), [Tauri CLI](https://tauri.app) (`cargo install tauri-cli`)
+
+**Linux?** Also install WebKitGTK dev packages:
 ```sh
 sudo apt install libwebkit2gtk-4.1-dev build-essential libssl-dev \
   librsvg2-dev libappindicator3-dev patchelf
 ```
 
-Then:
-
+**One command to start developing:**
 ```sh
-cargo tauri dev    # installs deps, builds the UI, and launches the app
+cargo tauri dev
 ```
-
-That's it — one command, no dev server, no open ports. The UI is loaded as
-built static files exactly like in production. For a distributable build:
-
+This boots the app in dev mode with instant Rust recompiles and auto-reloading UI. For a release build:
 ```sh
-cargo tauri build  # bundles the platform installer (NSIS/MSI, dmg, deb/rpm/AppImage)
+cargo tauri build
+```
+Installers land in `src-tauri/target/release/bundle/` (Windows `.exe`, macOS `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
+
+**Code quality checks:**
+```sh
+cd src-tauri && cargo clippy && cargo fmt --check && cargo test
+npm run check && npm run build
 ```
 
-Installers land in `src-tauri/target/release/bundle/`. Each OS builds its own
-format — Windows builds Windows installers, macOS builds dmg, Linux builds
-deb/rpm/AppImage — which is why the release workflow runs on all three.
+All must pass. See [AGENTS.md](AGENTS.md) for coding standards.
 
-## 🗂 Project structure
+## 🗂️ Architecture
 
 ```
-├── src/            Svelte 5 frontend (index.html, views, components, stores)
-├── src-tauri/      Rust backend (Tauri commands, process manager, installers)
-│   └── src/
-│       ├── servers.rs      server registry & config (persisted as YAML)
-│       ├── process.rs      java child processes, console streaming, shutdown
-│       ├── console.rs      pure log-line parsing (ready/join/leave/chat)
-│       ├── installers/     server installers for all 14 server types
-│       ├── plugins.rs      plugin folder management + Modrinth install
-│       ├── roster.rs       player history (playtime, chat, bans)
-│       ├── backups.rs      zip backups, restore, retention
-│       ├── files.rs        path-safe file browser scoped to a server
-│       ├── scheduler.rs    cron-style scheduled tasks
-│       ├── java/           JVM detection, version mapping, Temurin download
-│       └── commands.rs     thin Tauri command layer over the services
-└── *.config.*      root-level tooling configs (Vite, TypeScript, Svelte)
+src/                       Frontend (Svelte 5 + TypeScript)
+├── App.svelte            Main shell, routing, event listeners
+├── lib/
+│   ├── views/            Dashboard, ServerDetail, AppSettings, Docs
+│   ├── components/       Button, ContextMenu, Toasts, dialogs
+│   ├── stores/           Reactive state (servers, stats, toasts, etc.)
+│   ├── api.ts            Tauri command wrapper
+│   ├── events.ts         Event listeners (backend → UI)
+│   └── theme.css         Minecraft-inspired colors & typography
+└── assets/               Fonts, icons
+
+src-tauri/src/            Backend (Rust + Tauri)
+├── main.rs               Entry point
+├── lib.rs                Tauri app setup
+├── commands.rs           RPC handlers
+├── servers.rs            Server registry & YAML persistence
+├── process.rs            Java child processes, console streaming
+├── console.rs            Log parsing (ready, join/leave, etc.)
+├── installers/           14 server type installers
+├── java/                 JVM detection, auto-download Temurin
+├── plugins.rs            Modrinth plugin manager
+├── roster.rs             Player history & moderation
+├── backups.rs            Zip backups & restore
+├── files.rs              Scoped file browser
+├── scheduler.rs          Cron-style task scheduler
+└── [stats, portforward, properties, playerdata, etc.]
+
+Config & Tooling
+├── Cargo.toml            Rust dependencies & metadata
+├── package.json          Node.js dev dependencies
+├── vite.config.ts        Frontend build config
+├── tsconfig.json         TypeScript config
+└── svelte.config.js      Svelte config
 ```
 
-Each server lives in its own folder (`Documents/ServerForge Servers` by default,
-configurable) with a `blockparty-server.yaml` holding its settings. Global
-settings sit in a `blockparty.yaml` beside the binary — nothing in the registry.
-Downloaded Java runtimes live in the per-user app-data directory.
+**Data Storage:**
+- **Server configs:** `blockparty-server.yaml` per server folder (human-readable, editable)
+- **Global settings:** `blockparty.yaml` beside the app binary
+- **Java runtimes:** Per-user app-data directory (auto-downloaded)
+- **Player history:** Stored server-side, queried on demand
+- **Backups:** Versioned `.zip` files with retention policies
+- **No registry:** Everything is portable—move the folder, it just works.
 
-## 🧑‍💻 Development
+## 🤝 Contributing
 
-- Rust changes recompile automatically under `cargo tauri dev`. After UI
-  changes, re-run `cargo tauri dev` (the UI build takes well under a second).
-- Checks that must pass: `cargo clippy`, `cargo fmt --check`, `cargo test`
-  (in `src-tauri/`) and `npm run check` + `npm run build`.
-- Coding standards live in [AGENTS.md](AGENTS.md).
+We love contributions! Whether it's bug fixes, features, installers, or docs, all help is welcome.
+
+**Before you start:**
+- Read [AGENTS.md](AGENTS.md) — our coding standards (DRY, flat code, proper error handling, no panics)
+- Ensure `cargo clippy`, `cargo fmt`, `cargo test`, `npm run check`, and `npm run build` all pass
+- Coding standards are not optional—enforced by CI
+
+**Your first PR?**
+1. Fork the repo
+2. Create a branch: `git checkout -b feature/my-awesome-thing`
+3. Make your changes (follow AGENTS.md)
+4. Test locally: `cargo tauri dev`
+5. Push & open a PR with a clear description of what & why
+6. We'll review and iterate together ✨
+
+**Found a bug?** Open an issue with:
+- What you expected
+- What happened instead
+- Steps to reproduce
+- OS & app version
+
+## 📝 Development Workflow
+
+| Task | Command |
+|------|---------|
+| Run dev app | `cargo tauri dev` |
+| Build for release | `cargo tauri build` |
+| Format code | `cargo fmt` && `npm run build` |
+| Lint | `cargo clippy` |
+| Run tests | `cargo test` (in `src-tauri/`) |
+| Check types | `npm run check` |
+
+All checks must pass before submitting a PR. The CI will catch anything that slips through. 🤖
+
+## 📚 Resources
+
+- **[Wiki](https://github.com/voidhamsterofficial/mc-server-manager/wiki)** — User guides & troubleshooting
+- **[AGENTS.md](AGENTS.md)** — Coding standards (read before contributing!)
+- **[Issues](https://github.com/voidhamsterofficial/mc-server-manager/issues)** — Bug reports & feature requests
+- **[Discussions](https://github.com/voidhamsterofficial/mc-server-manager/discussions)** — Chat, ideas, questions
 
 ## 🙏 Credits
 
-- [Monocraft](https://github.com/IdreesInc/Monocraft) by Idrees Hassan — the
-  Minecraft-inspired pixel font used for headings and the console (SIL OFL 1.1,
-  contains no Mojang assets; license bundled in `src/assets/fonts/`).
-- Player avatars rendered via [mc-heads.net](https://mc-heads.net).
-- ServerForge contains no Minecraft game assets and is not affiliated with,
-  endorsed by, or supported by Mojang or Microsoft.
+- **[Monocraft](https://github.com/IdreesInc/Monocraft)** by Idrees Hassan — Minecraft-inspired pixel font (SIL OFL 1.1, no Mojang assets)
+- **[mc-heads.net](https://mc-heads.net)** — Player avatar rendering
+- **[Tauri](https://tauri.app)** — Rock-solid desktop framework
+- **Mojang** — For the best game ever 🎮
+
+ServerForge contains no Minecraft game assets and is not affiliated with, endorsed by, or supported by Mojang or Microsoft.
 
 ## 📄 License & EULA
 
-ServerForge downloads the official Minecraft server software from Mojang. You
-must accept the [Minecraft EULA](https://aka.ms/MinecraftEULA) for each server
-you create; the app records your acceptance in the server's `eula.txt`.
+ServerForge is licensed under [MIT](LICENSE). You're free to use, modify, and distribute it.
+
+**Important:** ServerForge downloads official Minecraft server software from Mojang. You must accept the [Minecraft EULA](https://aka.ms/MinecraftEULA) for each server you create. The app records your acceptance in `eula.txt`.
+
+---
+
+<div align="center">
+
+**Made with ❤️ for the Minecraft community**
+
+Have fun! Questions? [Join our discussions](https://github.com/voidhamsterofficial/mc-server-manager/discussions) 🎮
+
+</div>
