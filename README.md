@@ -18,7 +18,7 @@
 
 ---
 
-Built with **Rust** (Tauri v2 backend) and **Svelte 5** (TypeScript UI). A modern, open alternative to MC Server Soft.
+Built with **Rust** (Tauri v2 backend) and **Svelte 5** (TypeScript UI).
 
 ## ✨ Features at a Glance
 
