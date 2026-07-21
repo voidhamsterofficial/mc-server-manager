@@ -129,6 +129,11 @@ pub struct ServerConfig {
     /// Keep only this many newest backups; `None` keeps everything.
     #[serde(default)]
     pub backup_retention: Option<u32>,
+    /// Restart automatically after a crash, at most this many times in a row;
+    /// `None` disables it. The count resets whenever the server is started by
+    /// hand or stops cleanly, so this caps a crash *loop*, not a lifetime.
+    #[serde(default)]
+    pub crash_restart_limit: Option<u32>,
     pub created_at_unix: u64,
 }
 
@@ -273,6 +278,7 @@ pub fn new_server_config(request: &CreateServerRequest, dir: PathBuf) -> ServerC
         java_args: normalized_option(&request.java_args),
         start_command: normalized_option(&request.start_command),
         backup_retention: None,
+        crash_restart_limit: None,
         created_at_unix,
     }
 }
@@ -305,6 +311,7 @@ pub fn config_for_import(
         java_args: None,
         start_command: None,
         backup_retention: None,
+        crash_restart_limit: None,
         created_at_unix: current_unix_time(),
     }
 }

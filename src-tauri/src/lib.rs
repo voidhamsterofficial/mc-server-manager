@@ -11,7 +11,7 @@ mod process;
 mod servers;
 mod storage;
 
-use tauri::Manager;
+use tauri::{Listener, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -48,6 +48,21 @@ pub fn run() {
 
             process::stats::spawn_sampler(app.handle().clone(), running);
             servers::scheduler::spawn_scheduler(app.handle().clone());
+
+            // Crash auto-restart: the supervisor reports a crash, and this
+            // decides whether to bring the server back (see
+            // servers::service::restart_after_crash).
+            let crash_handle = app.handle().clone();
+            app.listen(events::SERVER_CRASHED, move |event| {
+                let Ok(crash) = serde_json::from_str::<process::CrashedEvent>(event.payload())
+                else {
+                    return;
+                };
+                let app_handle = crash_handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    servers::service::restart_after_crash(&app_handle, &crash.server_id).await;
+                });
+            });
 
             // Clean up any server processes a previous crash left orphaned.
             let orphan_sweep_handle = app.handle().clone();
@@ -95,6 +110,9 @@ pub fn run() {
             commands::write_server_file,
             commands::delete_server_file,
             commands::import_server_file,
+            commands::create_server_file,
+            commands::create_server_dir,
+            commands::rename_server_file,
             commands::preview_start_command,
             commands::list_plugins,
             commands::set_plugin_enabled,
@@ -107,6 +125,7 @@ pub fn run() {
             commands::list_mods,
             commands::set_mod_enabled,
             commands::delete_mod,
+            commands::import_mod_jar,
             commands::search_mods,
             commands::install_mod,
             commands::check_mod_updates,
@@ -133,6 +152,13 @@ pub fn run() {
             } = event
             {
                 api.prevent_exit();
+                // Stop auto-restarts before anything is torn down, or a
+                // server going down on the way out gets resurrected into an
+                // orphan process the app no longer owns.
+                app_handle
+                    .state::<servers::state::AppState>()
+                    .shutting_down
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
                 let app_handle = app_handle.clone();
                 tauri::async_runtime::spawn(async move {
                     commands::close_all_port_forwards(&app_handle).await;

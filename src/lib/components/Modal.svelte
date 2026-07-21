@@ -21,7 +21,7 @@
   $effect(() => {
     if (open) {
       previouslyFocused = document.activeElement as HTMLElement | null;
-      // Defer past children that focus themselves (e.g. ReasonPrompt's input),
+      // Defer past children that focus themselves (e.g. TextPrompt's input),
       // and don't steal focus if it's already landed inside the dialog.
       queueMicrotask(() => {
         if (dialog && !dialog.contains(document.activeElement)) {

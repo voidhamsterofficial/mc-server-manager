@@ -4,7 +4,7 @@
   import { toastsStore } from "../stores/toasts.svelte";
   import { formatDateTime, formatUptime } from "../util/format";
   import { commandArg, commandText } from "../ipc/commands";
-  import { reasonPromptStore } from "../stores/reasonPrompt.svelte";
+  import { textPromptStore } from "../stores/textPrompt.svelte";
   import Modal from "./Modal.svelte";
   import Button from "./Button.svelte";
 
@@ -73,10 +73,11 @@
     if (!name) {
       return;
     }
-    const reason = await reasonPromptStore.ask({
+    const reason = await textPromptStore.ask({
       title: `${actionLabel} ${name}`,
       actionLabel,
       variant: "danger",
+      hint: "Leave blank to record no reason.",
     });
     if (reason === null) {
       return;

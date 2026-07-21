@@ -614,6 +614,7 @@ pub struct UpdateServerRequest {
     pub start_command: Option<String>,
     /// Keep only this many newest backups; `None` keeps everything.
     pub backup_retention: Option<u32>,
+    pub crash_restart_limit: Option<u32>,
 }
 
 #[tauri::command]
@@ -642,6 +643,7 @@ pub async fn update_server(
     config.java_args = servers::normalized_option(&request.java_args);
     config.start_command = servers::normalized_option(&request.start_command);
     config.backup_retention = request.backup_retention;
+    config.crash_restart_limit = request.crash_restart_limit;
     let updated = config.clone();
     drop(registry);
 
@@ -991,6 +993,45 @@ pub async fn preview_start_command(
     process::preview_default_command(&config, &state.server_dir(&config))
 }
 
+/// Creates an empty file in the folder currently being browsed.
+#[tauri::command]
+pub async fn create_server_file(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    rel_dir: String,
+    name: String,
+) -> AppResult<String> {
+    let config = service::find_config(&app, &server_id).await?;
+    files::create_file(&state.server_dir(&config), &rel_dir, &name)
+}
+
+/// Creates a folder in the folder currently being browsed.
+#[tauri::command]
+pub async fn create_server_dir(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    rel_dir: String,
+    name: String,
+) -> AppResult<String> {
+    let config = service::find_config(&app, &server_id).await?;
+    files::create_dir(&state.server_dir(&config), &rel_dir, &name)
+}
+
+/// Renames a file or folder in place. Returns its new relative path.
+#[tauri::command]
+pub async fn rename_server_file(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    rel_path: String,
+    new_name: String,
+) -> AppResult<String> {
+    let config = service::find_config(&app, &server_id).await?;
+    files::rename_entry(&state.server_dir(&config), &rel_path, &new_name)
+}
+
 #[tauri::command]
 pub async fn delete_server_file(
     app: AppHandle,
@@ -1272,6 +1313,19 @@ pub async fn set_mod_enabled(
     let db = state.db.lock().await;
     db.rename_plugin_install(&server_id, &file_name, &new_file_name)?;
     Ok(new_file_name)
+}
+
+/// Installs a `.jar` dragged onto the Mods tab. Like hand-dropped plugins,
+/// these get no install record and so sit out of update checks.
+#[tauri::command]
+pub async fn import_mod_jar(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    source_path: String,
+) -> AppResult<mods::InstalledMod> {
+    let config = service::find_config(&app, &server_id).await?;
+    mods::import_jar(&state.server_dir(&config), Path::new(&source_path))
 }
 
 #[tauri::command]

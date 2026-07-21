@@ -5,10 +5,15 @@
 
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
-  import { ArrowDown, Copy, FileText, Terminal } from "@lucide/svelte";
+  import { ArrowDown, Copy, FileText, Search, Terminal, X } from "@lucide/svelte";
   import type { ConsoleLine } from "../ipc/events";
   import { contextMenuStore, type MenuEntry } from "../stores/contextMenu.svelte";
   import { toastsStore } from "../stores/toasts.svelte";
+  import {
+    filterConsoleLines,
+    isFilterActive,
+    type LevelFilter,
+  } from "../util/consoleFilter";
 
   interface Props {
     lines: ConsoleLine[];
@@ -16,9 +21,23 @@
 
   let { lines }: Props = $props();
 
-  /** The whole buffer as plain text, one line per row. */
+  let query = $state("");
+  let level = $state<LevelFilter>("all");
+
+  const filter = $derived({ query, level });
+  const filtering = $derived(isFilterActive(filter));
+  const visibleLines = $derived(filterConsoleLines(lines, filter));
+
+  function clearFilter() {
+    query = "";
+    level = "all";
+  }
+
+  /** The lines currently on screen as plain text, one per row. Deliberately
+   *  the filtered set: when a filter is on, "copy" should hand over what the
+   *  user is looking at, not the 5000 lines hidden behind it. */
   function consoleText(): string {
-    return lines.map((line) => line.spans.map((span) => span.text).join("")).join("\n");
+    return visibleLines.map((line) => line.spans.map((span) => span.text).join("")).join("\n");
   }
 
   async function copyText(text: string, successMessage: string) {
@@ -43,9 +62,9 @@
         action: () => copyText(selection, "Copied selection"),
       },
       {
-        label: "Copy all output",
+        label: filtering ? "Copy filtered output" : "Copy all output",
         icon: FileText,
-        disabled: lines.length === 0,
+        disabled: visibleLines.length === 0,
         action: () => copyText(consoleText(), "Copied console output"),
       },
     ];
@@ -121,6 +140,34 @@
 </script>
 
 <div class="console-view">
+  <div class="filter-bar">
+    <label class="search">
+      <Search size={14} />
+      <input type="text" bind:value={query} placeholder="Filter output…" spellcheck="false" />
+    </label>
+    <div class="levels" role="group" aria-label="Filter by severity">
+      {#each [["all", "All"], ["warn", "Warnings"], ["error", "Errors"]] as const as [value, label] (value)}
+        <button
+          type="button"
+          class="level"
+          class:active={level === value}
+          aria-pressed={level === value}
+          onclick={() => (level = value)}
+        >
+          {label}
+        </button>
+      {/each}
+    </div>
+    {#if filtering}
+      <span class="match-count">
+        {visibleLines.length} of {lines.length}
+      </span>
+      <button type="button" class="clear" onclick={clearFilter} title="Clear filter">
+        <X size={14} />
+      </button>
+    {/if}
+  </div>
+
   <div
     class="viewport"
     bind:this={viewport}
@@ -132,8 +179,10 @@
     <div class="content" bind:this={content}>
       {#if lines.length === 0}
         <p class="empty"><Terminal size={16} /> Console output will appear here…</p>
+      {:else if visibleLines.length === 0}
+        <p class="empty"><Search size={16} /> No lines match this filter.</p>
       {:else}
-        {#each lines as line, index (index)}
+        {#each visibleLines as line, index (index)}
           <div class="line {line.level}">
             {#each line.spans as span, spanIndex (spanIndex)}
               <span style:color={span.color ?? null} class:bold={span.bold}>{span.text}</span>
@@ -155,12 +204,99 @@
   .console-view {
     position: relative;
     height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .search {
+    flex: 1;
+    min-width: 8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.25rem 0.5rem;
+  }
+
+  .search:focus-within {
+    border-color: var(--accent);
+  }
+
+  .search input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--text);
+    outline: none;
+  }
+
+  .levels {
+    display: flex;
+    gap: 0.2rem;
+  }
+
+  .level {
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+  }
+
+  .level:hover {
+    color: var(--text);
+    background: var(--surface-2);
+  }
+
+  .level.active {
+    color: var(--accent-strong);
+    border-color: var(--accent);
+    background: var(--surface-2);
+  }
+
+  .match-count {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .clear {
+    display: inline-flex;
+    align-items: center;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.2rem;
+  }
+
+  .clear:hover {
+    color: var(--text);
   }
 
   /* The console is always terminal-dark, in both app themes, so authentic
      Minecraft/ANSI colors stay readable. */
   .viewport {
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     background: #1a1b1e;
     border-radius: var(--radius-md);

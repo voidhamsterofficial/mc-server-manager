@@ -27,7 +27,7 @@
   import { openPath } from "@tauri-apps/plugin-opener";
   import { api, type ServerConfig } from "./lib/ipc/api";
   import Toasts from "./lib/components/Toasts.svelte";
-  import ReasonPrompt from "./lib/components/ReasonPrompt.svelte";
+  import TextPrompt from "./lib/components/TextPrompt.svelte";
   import ConfirmDialog from "./lib/components/ConfirmDialog.svelte";
   import { confirmStore } from "./lib/stores/confirm.svelte";
   import { portForwardStore } from "./lib/stores/portForward.svelte";
@@ -36,6 +36,7 @@
   import { serversStore } from "./lib/stores/servers.svelte";
   import { statsStore } from "./lib/stores/stats.svelte";
   import { toastsStore } from "./lib/stores/toasts.svelte";
+  import { unsavedEditsStore } from "./lib/stores/unsavedEdits.svelte";
   import { formatFileSize } from "./lib/util/format";
   import {
     onConsoleBatch,
@@ -58,6 +59,16 @@
   const JAVA_PILL_DONE_LINGER_MS = 1_600;
 
   let route = $state<Route>({ view: "home" });
+
+  /** Every route change goes through here, so a view with unsaved edits gets
+   *  one chance to object before it's torn down. */
+  async function navigate(next: Route) {
+    const mayLeave = await unsavedEditsStore.confirmLeave();
+    if (!mayLeave) {
+      return;
+    }
+    route = next;
+  }
   let wizardOpen = $state(false);
   let importOpen = $state(false);
   let javaDownload = $state<InstallProgressEvent | null>(null);
@@ -179,8 +190,12 @@
     }
 
     // Leave the server's page before refreshing, or the view renders a server
-    // that no longer exists.
+    // that no longer exists. Deliberately not via navigate(): the folder is
+    // about to be deleted, so offering to preserve unsaved edits to a file
+    // inside it would be nonsense — drop the record instead so it can't
+    // block the next navigation.
     if (route.view === "server" && route.serverId === server.id) {
+      unsavedEditsStore.clear();
       route = { view: "home" };
     }
     await runWithToast(() => api.deleteServer(server.id), `Deleted "${server.name}"`);
@@ -196,7 +211,7 @@
       {
         label: "Open",
         icon: Monitor,
-        action: () => (route = { view: "server", serverId: server.id }),
+        action: () => navigate({ view: "server", serverId: server.id }),
       },
       "separator",
     ];
@@ -273,8 +288,8 @@
       { label: "Stop all", icon: Square, tone: "warning", action: stopAll },
       { label: "Back up all", icon: Archive, tone: "success", action: backupAll },
       "separator",
-      { label: "Docs", icon: BookOpen, action: () => (route = { view: "docs" }) },
-      { label: "Settings", icon: Settings, action: () => (route = { view: "settings" }) },
+      { label: "Docs", icon: BookOpen, action: () => navigate({ view: "docs" }) },
+      { label: "Settings", icon: Settings, action: () => navigate({ view: "settings" }) },
     ];
   }
 
@@ -329,7 +344,7 @@
     <button
       class="brand"
       class:active={route.view === "home"}
-      onclick={() => (route = { view: "home" })}
+      onclick={() => navigate({ view: "home" })}
       title="All servers"
     >
       <span class="mark"><GrassBlock size={22} /></span>
@@ -341,7 +356,7 @@
         <button
           class="server-item"
           class:active={route.view === "server" && route.serverId === server.id}
-          onclick={() => (route = { view: "server", serverId: server.id })}
+          onclick={() => navigate({ view: "server", serverId: server.id })}
           oncontextmenu={(event) => showServerMenu(event, server)}
           title={server.name}
         >
@@ -354,14 +369,14 @@
     <button
       class="settings-item"
       class:active={route.view === "docs"}
-      onclick={() => (route = { view: "docs" })}
+      onclick={() => navigate({ view: "docs" })}
     >
       <BookOpen size={16} color="var(--accent)" /> <span>Docs</span>
     </button>
     <button
       class="settings-item"
       class:active={route.view === "settings"}
-      onclick={() => (route = { view: "settings" })}
+      onclick={() => navigate({ view: "settings" })}
     >
       <Settings size={16} color="var(--feat-settings)" /> <span>Settings</span>
     </button>
@@ -390,17 +405,17 @@
 
     <main>
       {#if selectedServer}
-        <ServerDetail server={selectedServer} onback={() => (route = { view: "home" })} />
+        <ServerDetail server={selectedServer} onback={() => navigate({ view: "home" })} />
       {:else if route.view === "settings"}
         <AppSettings />
       {:else if route.view === "docs"}
-        <Docs onopenview={(view) => (route = { view })} />
+        <Docs onopenview={(view) => navigate({ view })} />
       {:else}
         <Dashboard
-          onopen={(serverId) => (route = { view: "server", serverId })}
+          onopen={(serverId) => navigate({ view: "server", serverId })}
           onnew={() => (wizardOpen = true)}
           onimport={() => (importOpen = true)}
-          ondocs={() => (route = { view: "docs" })}
+          ondocs={() => navigate({ view: "docs" })}
           onservermenu={showServerMenu}
         />
       {/if}
@@ -424,7 +439,7 @@
   onimported={() => runWithToast(() => serversStore.refresh())}
 />
 <ContextMenu />
-<ReasonPrompt />
+<TextPrompt />
 <ConfirmDialog />
 <Toasts />
 

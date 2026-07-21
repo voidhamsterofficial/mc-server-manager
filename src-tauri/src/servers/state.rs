@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use tauri::{AppHandle, Manager};
@@ -51,6 +52,13 @@ pub struct AppState {
     /// Recent marketplace responses, so browsing and update checks don't ask
     /// Modrinth the same question twice inside a few minutes.
     pub marketplace_cache: MarketplaceCache,
+    /// server_id -> how many times it has been auto-restarted after a crash
+    /// without a clean run in between. Caps a crash loop; cleared on a manual
+    /// start or a clean stop.
+    pub crash_restarts: Mutex<HashMap<String, u32>>,
+    /// Set while the app is closing, so a server going down on the way out
+    /// isn't resurrected into an orphan.
+    pub shutting_down: AtomicBool,
 }
 
 impl AppState {
@@ -93,6 +101,8 @@ impl AppState {
             rosters: RosterStore::new(Arc::clone(&db)),
             forwarded: Mutex::new(HashMap::new()),
             marketplace_cache: MarketplaceCache::new(),
+            crash_restarts: Mutex::new(HashMap::new()),
+            shutting_down: AtomicBool::new(false),
             db,
             data_dir,
         };

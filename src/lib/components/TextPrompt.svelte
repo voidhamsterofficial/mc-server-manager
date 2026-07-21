@@ -1,12 +1,13 @@
 <script lang="ts">
-  // The shared kick/ban reason dialog. Driven by reasonPromptStore.ask().
+  // The shared single-line text dialog: kick/ban reasons, and names for new
+  // or renamed files. Driven by textPromptStore.ask().
   import Modal from "./Modal.svelte";
   import Button from "./Button.svelte";
-  import { reasonPromptStore } from "../stores/reasonPrompt.svelte";
+  import { textPromptStore } from "../stores/textPrompt.svelte";
 
   function submit(event: SubmitEvent) {
     event.preventDefault();
-    reasonPromptStore.confirm();
+    textPromptStore.confirm();
   }
 
   /** Focus the field as soon as the dialog opens. */
@@ -16,31 +17,37 @@
 </script>
 
 <Modal
-  open={reasonPromptStore.open}
-  title={reasonPromptStore.title}
-  onclose={() => reasonPromptStore.cancel()}
+  open={textPromptStore.open}
+  title={textPromptStore.title}
+  onclose={() => textPromptStore.cancel()}
 >
   <form onsubmit={submit}>
     <input
-      class="reason"
+      class="text-field"
       type="text"
-      bind:value={reasonPromptStore.value}
-      placeholder={reasonPromptStore.placeholder}
+      bind:value={textPromptStore.value}
+      placeholder={textPromptStore.placeholder}
       spellcheck="false"
       use:autofocus
     />
-    <p class="hint">Leave blank to record no reason.</p>
+    {#if textPromptStore.hint !== null}
+      <p class="hint">{textPromptStore.hint}</p>
+    {/if}
     <div class="actions">
-      <Button variant="ghost" onclick={() => reasonPromptStore.cancel()}>Cancel</Button>
-      <Button type="submit" variant={reasonPromptStore.variant}>
-        {reasonPromptStore.actionLabel}
+      <Button variant="ghost" onclick={() => textPromptStore.cancel()}>Cancel</Button>
+      <Button
+        type="submit"
+        variant={textPromptStore.variant}
+        disabled={textPromptStore.required && textPromptStore.value.trim() === ""}
+      >
+        {textPromptStore.actionLabel}
       </Button>
     </div>
   </form>
 </Modal>
 
 <style>
-  .reason {
+  .text-field {
     width: 100%;
     font-family: inherit;
     font-size: 0.95rem;
@@ -53,7 +60,7 @@
     transition: border-color 0.18s ease;
   }
 
-  .reason:focus {
+  .text-field:focus {
     border-color: var(--accent);
   }
 
@@ -64,6 +71,7 @@
   }
 
   .actions {
+    margin-top: 1rem;
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;

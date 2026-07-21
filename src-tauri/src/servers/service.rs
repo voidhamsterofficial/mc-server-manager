@@ -2,6 +2,7 @@
 //! later, the remote web panel): start/stop/restart flows and backups.
 
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager};
@@ -21,6 +22,84 @@ const RESTART_WAIT: Duration = Duration::from_secs(60);
 /// the world flush can finish.
 const LIVE_BACKUP_FLUSH_DELAY: Duration = Duration::from_secs(2);
 
+/// How long to wait before bringing a crashed server back, so one that dies
+/// during startup can't spin restarting many times a second.
+const CRASH_RESTART_DELAY: Duration = Duration::from_secs(5);
+
+/// Decides what to do about a server that crashed — the listener for
+/// `server:crashed`. Kept here rather than in the process supervisor so the
+/// low-level process layer never has to know about the start path.
+///
+/// Restarts are capped, so a server that dies on every boot eventually stays
+/// down instead of retrying forever, and everything it decides is announced
+/// in the server's own console: a server that silently resurrects itself is
+/// harder to reason about than one that stays down.
+pub async fn restart_after_crash(app: &AppHandle, server_id: &str) {
+    let state = app.state::<AppState>();
+
+    // On the way out of the app, leave it down — restarting here would spawn
+    // a server process the app is no longer around to own.
+    if state.shutting_down.load(Ordering::SeqCst) {
+        return;
+    }
+
+    let Ok(config) = find_config(app, server_id).await else {
+        // Deleted while it was going down — nothing to bring back.
+        return;
+    };
+    let Some(limit) = config.crash_restart_limit else {
+        return;
+    };
+
+    let attempt = {
+        let mut restarts = state.crash_restarts.lock().await;
+        let attempt = restarts.entry(server_id.to_string()).or_insert(0);
+        *attempt += 1;
+        *attempt
+    };
+
+    if attempt > limit {
+        process::announce(
+            app,
+            server_id,
+            format!(
+                "Crashed again after {limit} automatic restart(s) — leaving it stopped. Start it by hand once the cause is fixed."
+            ),
+            process::console::LogLevel::Error,
+        );
+        return;
+    }
+
+    process::announce(
+        app,
+        server_id,
+        format!(
+            "Server crashed (attempt {attempt} of {limit}) — restarting automatically in {}s.",
+            CRASH_RESTART_DELAY.as_secs()
+        ),
+        process::console::LogLevel::Warn,
+    );
+    tokio::time::sleep(CRASH_RESTART_DELAY).await;
+
+    // The user may have started it again by hand while we were waiting, or
+    // closed the app.
+    if state.shutting_down.load(Ordering::SeqCst) {
+        return;
+    }
+    if process::is_running(&state.running, server_id).await {
+        return;
+    }
+
+    if let Err(error) = start_server(app, server_id).await {
+        process::announce(
+            app,
+            server_id,
+            format!("Automatic restart failed: {error}"),
+            process::console::LogLevel::Error,
+        );
+    }
+}
+
 pub async fn find_config(app: &AppHandle, server_id: &str) -> AppResult<ServerConfig> {
     let state = app.state::<AppState>();
     let registry = state.registry.lock().await;
@@ -29,6 +108,14 @@ pub async fn find_config(app: &AppHandle, server_id: &str) -> AppResult<ServerCo
 }
 
 pub async fn start_server(app: &AppHandle, server_id: &str) -> AppResult<()> {
+    // A start the user asked for ends any crash streak, so a server fixed by
+    // hand gets its full allowance again.
+    app.state::<AppState>()
+        .crash_restarts
+        .lock()
+        .await
+        .remove(server_id);
+
     let state = app.state::<AppState>();
     let config = find_config(app, server_id).await?;
 

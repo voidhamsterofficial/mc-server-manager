@@ -35,6 +35,7 @@
   let editedJavaArgs = $state("");
   let editedStartCommand = $state("");
   let editedRetention = $state("");
+  let editedCrashRestartLimit = $state("");
   let javaInstalls = $state<JavaInstall[]>([]);
   let savingConfig = $state(false);
   let advancedOpen = $state(false);
@@ -97,6 +98,8 @@
       editedJavaArgs = server.javaArgs ?? "";
       editedStartCommand = server.startCommand ?? "";
       editedRetention = server.backupRetention === null ? "" : String(server.backupRetention);
+      editedCrashRestartLimit =
+        server.crashRestartLimit === null ? "" : String(server.crashRestartLimit);
       loadProperties(id);
       loadIcon(id);
       loadDefaultStartCommand(id);
@@ -225,6 +228,7 @@
     savingConfig = true;
     try {
       const retentionNumber = Number.parseInt(editedRetention, 10);
+      const crashRestartNumber = Number.parseInt(editedCrashRestartLimit, 10);
       await api.updateServer(server.id, {
         name: editedName,
         memoryMb: editedMemoryMb,
@@ -234,6 +238,8 @@
         startCommand: editedStartCommand.trim() === "" ? null : editedStartCommand.trim(),
         backupRetention:
           Number.isNaN(retentionNumber) || retentionNumber < 1 ? null : retentionNumber,
+        crashRestartLimit:
+          Number.isNaN(crashRestartNumber) || crashRestartNumber < 1 ? null : crashRestartNumber,
       });
       await serversStore.refresh();
       toastsStore.success("Server settings saved");
@@ -291,6 +297,16 @@
       <label>
         <span>Backup retention (empty = keep all)</span>
         <input type="number" min="1" bind:value={editedRetention} placeholder="keep all" />
+      </label>
+      <label>
+        <span>Restart after a crash (empty = never)</span>
+        <input
+          type="number"
+          min="1"
+          bind:value={editedCrashRestartLimit}
+          placeholder="never"
+          title="How many times in a row to restart automatically after a crash. The count resets when you start the server yourself or it stops cleanly."
+        />
       </label>
     </div>
 

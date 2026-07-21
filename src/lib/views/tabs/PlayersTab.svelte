@@ -17,7 +17,7 @@
   import { formatDateTime, formatUptime } from "../../util/format";
   import { commandArg, commandText } from "../../ipc/commands";
   import { FEATURE_COLOR } from "../../util/features";
-  import { reasonPromptStore } from "../../stores/reasonPrompt.svelte";
+  import { textPromptStore } from "../../stores/textPrompt.svelte";
   import Button from "../../components/Button.svelte";
   import PlayerDetailModal from "../../components/PlayerDetailModal.svelte";
 
@@ -100,10 +100,11 @@
     actionLabel: string,
     successMessage: string,
   ) {
-    const reason = await reasonPromptStore.ask({
+    const reason = await textPromptStore.ask({
       title: `${actionLabel} ${name}`,
       actionLabel,
       variant: "danger",
+      hint: "Leave blank to record no reason.",
     });
     if (reason === null) {
       return;

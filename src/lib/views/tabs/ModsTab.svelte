@@ -39,6 +39,7 @@
   remove={api.deleteMod}
   search={api.searchMods}
   install={api.installMod}
+  importJar={api.importModJar}
   checkUpdates={api.checkModUpdates}
   update={api.updateMod}
 />

@@ -25,6 +25,11 @@ pub fn list_installed(server_dir: &Path) -> AppResult<Vec<InstalledMod>> {
     addons::list_installed(&mods_dir(server_dir))
 }
 
+/// Copies a `.jar` dropped onto the Mods tab into the server's `mods/` folder.
+pub fn import_jar(server_dir: &Path, source_path: &Path) -> AppResult<InstalledMod> {
+    addons::import_jar(&mods_dir(server_dir), source_path)
+}
+
 pub fn set_enabled(server_dir: &Path, file_name: &str, enabled: bool) -> AppResult<String> {
     addons::set_enabled(&mods_dir(server_dir), file_name, enabled)
 }

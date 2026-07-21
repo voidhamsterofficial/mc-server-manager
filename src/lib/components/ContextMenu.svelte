@@ -16,6 +16,19 @@
     item.action();
   }
 
+  /** Don't let the pointer leaving steal a submenu the keyboard is using. */
+  function closeSubmenuUnlessFocused(index: number) {
+    if (openSubmenuIndex !== index) {
+      return;
+    }
+    const active = document.activeElement;
+    const isFocusInside = active instanceof HTMLElement && active.closest(".row") !== null;
+    if (isFocusInside) {
+      return;
+    }
+    openSubmenuIndex = null;
+  }
+
   function hasSubmenu(item: MenuItem): boolean {
     return item.submenu !== undefined;
   }
@@ -26,6 +39,43 @@
       return;
     }
     openSubmenuIndex = index;
+  }
+
+  /** Keyboard equivalent of hovering a parent row: Right/Enter opens its
+   *  submenu and moves focus into it, Left/Escape comes back out. Without
+   *  this the online-player lists are reachable by mouse only. */
+  function handleParentKeydown(event: KeyboardEvent, index: number, item: MenuItem) {
+    if (!hasSubmenu(item) || item.disabled) {
+      return;
+    }
+    const opensSubmenu = event.key === "ArrowRight";
+    if (!opensSubmenu) {
+      return;
+    }
+    event.preventDefault();
+    openSubmenu(index, item);
+    focusFirstSubmenuItem(event.currentTarget as HTMLElement);
+  }
+
+  function focusFirstSubmenuItem(parentButton: HTMLElement) {
+    // The submenu renders in the same row wrapper, one frame later.
+    requestAnimationFrame(() => {
+      const row = parentButton.parentElement;
+      const firstItem = row?.querySelector<HTMLButtonElement>(".submenu .item");
+      firstItem?.focus();
+    });
+  }
+
+  /** Left/Escape inside a submenu returns to the row that owns it. */
+  function handleSubmenuKeydown(event: KeyboardEvent) {
+    if (event.key !== "ArrowLeft") {
+      return;
+    }
+    event.preventDefault();
+    const submenu = (event.currentTarget as HTMLElement).closest(".submenu");
+    const parentButton = submenu?.parentElement?.querySelector<HTMLButtonElement>(".item");
+    openSubmenuIndex = null;
+    parentButton?.focus();
   }
 
   function handleWindowKeydown(event: KeyboardEvent) {
@@ -61,7 +111,7 @@
           class="row"
           role="none"
           onmouseenter={() => openSubmenu(index, entry)}
-          onmouseleave={() => (openSubmenuIndex = null)}
+          onmouseleave={() => closeSubmenuUnlessFocused(index)}
         >
           <button
             class="item"
@@ -71,6 +121,8 @@
             aria-haspopup={hasSubmenu(entry) ? "menu" : undefined}
             aria-expanded={hasSubmenu(entry) ? openSubmenuIndex === index : undefined}
             onclick={() => run(entry)}
+            onfocus={() => openSubmenu(index, entry)}
+            onkeydown={(event) => handleParentKeydown(event, index, entry)}
           >
             <span class="icon" class:danger={entry.danger} class:tone-success={entry.tone === "success"} class:tone-warning={entry.tone === "warning"} class:tone-info={entry.tone === "info"}>
               {#if entry.icon}
@@ -78,7 +130,7 @@
               {/if}
             </span>
             {entry.label}
-            {#if hasSubmenu(entry)}<span class="arrow">›</span>{/if}
+            {#if hasSubmenu(entry)}<span class="arrow" aria-hidden="true">›</span>{/if}
           </button>
 
           {#if hasSubmenu(entry) && openSubmenuIndex === index}
@@ -89,7 +141,12 @@
                 </span>
               {:else}
                 {#each entry.submenu! as child, childIndex (childIndex)}
-                  <button class="item" role="menuitem" onclick={() => run(child)}>
+                  <button
+                    class="item"
+                    role="menuitem"
+                    onclick={() => run(child)}
+                    onkeydown={handleSubmenuKeydown}
+                  >
                     <span class="icon" class:tone-info={child.tone === "info"}>
                       {#if child.icon}
                         <child.icon size={15} />

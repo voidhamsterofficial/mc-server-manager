@@ -60,6 +60,9 @@ export interface ServerConfig {
   javaArgs: string | null;
   startCommand: string | null;
   backupRetention: number | null;
+  /** Restart automatically after a crash, at most this many times in a row;
+   *  null disables it. */
+  crashRestartLimit: number | null;
   createdAtUnix: number;
 }
 
@@ -247,6 +250,8 @@ export interface UpdateServerRequest {
   startCommand: string | null;
   /** Keep only this many newest backups; null keeps everything. */
   backupRetention: number | null;
+  /** Restart after a crash up to this many times in a row; null disables it. */
+  crashRestartLimit: number | null;
 }
 
 export const api = {
@@ -304,6 +309,15 @@ export const api = {
     invoke<void>("write_server_file", { serverId, relPath, contents }),
   deleteServerFile: (serverId: string, relPath: string) =>
     invoke<void>("delete_server_file", { serverId, relPath }),
+  /** Creates an empty file in `relDir`; resolves with its relative path. */
+  createServerFile: (serverId: string, relDir: string, name: string) =>
+    invoke<string>("create_server_file", { serverId, relDir, name }),
+  /** Creates a folder in `relDir`; resolves with its relative path. */
+  createServerDir: (serverId: string, relDir: string, name: string) =>
+    invoke<string>("create_server_dir", { serverId, relDir, name }),
+  /** Renames a file or folder in place; resolves with its new relative path. */
+  renameServerFile: (serverId: string, relPath: string, newName: string) =>
+    invoke<string>("rename_server_file", { serverId, relPath, newName }),
   /** Copies a file from disk into `relDir`; resolves with the name it landed under. */
   importServerFile: (serverId: string, relDir: string, sourcePath: string) =>
     invoke<string>("import_server_file", { serverId, relDir, sourcePath }),
@@ -331,6 +345,9 @@ export const api = {
   listMods: (serverId: string) => invoke<InstalledMod[]>("list_mods", { serverId }),
   setModEnabled: (serverId: string, fileName: string, enabled: boolean) =>
     invoke<string>("set_mod_enabled", { serverId, fileName, enabled }),
+  /** Installs a `.jar` from disk into the server's `mods/` folder. */
+  importModJar: (serverId: string, sourcePath: string) =>
+    invoke<InstalledMod>("import_mod_jar", { serverId, sourcePath }),
   deleteMod: (serverId: string, fileName: string) =>
     invoke<void>("delete_mod", { serverId, fileName }),
   searchMods: (serverId: string, source: AddonSource, query: string) =>

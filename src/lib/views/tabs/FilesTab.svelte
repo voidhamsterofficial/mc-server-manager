@@ -12,6 +12,9 @@
     Package,
     Upload,
     ExternalLink,
+    FilePlus,
+    FolderPlus,
+    PenLine,
   } from "@lucide/svelte";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { watchFileDrops } from "../../util/dragDrop";
@@ -22,6 +25,8 @@
     type ServerConfig,
   } from "../../ipc/api";
   import { toastsStore } from "../../stores/toasts.svelte";
+  import { unsavedEditsStore } from "../../stores/unsavedEdits.svelte";
+  import { textPromptStore } from "../../stores/textPrompt.svelte";
   import { contextMenuStore, type MenuEntry } from "../../stores/contextMenu.svelte";
   import { formatFileSize } from "../../util/format";
   import { highlight, lineCount, syntaxFor } from "../../util/highlight";
@@ -45,6 +50,9 @@
   // Editor state for the currently open file.
   let openFile = $state<string | null>(null);
   let fileContents = $state("");
+  /** What was last read from or written to disk, so "unsaved" is a fact
+   *  rather than a guess — typing and undoing leaves nothing to warn about. */
+  let savedContents = $state("");
   let savingFile = $state(false);
   let confirmingDelete = $state<string | null>(null);
 
@@ -54,6 +62,14 @@
   let importing = $state(false);
 
   const breadcrumbs = $derived(buildBreadcrumbs(currentPath));
+  const hasUnsavedEdits = $derived(openFile !== null && fileContents !== savedContents);
+
+  $effect(() => {
+    // Publish the dirty state so navigating away (which destroys this tab)
+    // can ask first, and always withdraw it on teardown.
+    unsavedEditsStore.set(hasUnsavedEdits ? openFile : null);
+    return () => unsavedEditsStore.clear();
+  });
 
   // Editor rendering: a highlighted <pre> sits directly under a transparent
   // <textarea>, and a gutter beside them. All three share one font metric, so
@@ -168,10 +184,20 @@
     }
     try {
       fileContents = await api.readServerFile(server.id, entry.relPath);
+      savedContents = fileContents;
       openFile = entry.relPath;
     } catch (error) {
       toastsStore.error(String(error));
     }
+  }
+
+  /** Closes the editor, asking first when there are edits that would be lost. */
+  async function closeEditor() {
+    const mayClose = await unsavedEditsStore.confirmLeave();
+    if (!mayClose) {
+      return;
+    }
+    openFile = null;
   }
 
   async function saveFile() {
@@ -181,6 +207,7 @@
     savingFile = true;
     try {
       await api.writeServerFile(server.id, openFile, fileContents);
+      savedContents = fileContents;
       toastsStore.success("File saved");
     } catch (error) {
       toastsStore.error(String(error));
@@ -195,6 +222,54 @@
       await api.deleteServerFile(server.id, relPath);
       toastsStore.show("Deleted");
       await loadDir(currentPath);
+    } catch (error) {
+      toastsStore.error(String(error));
+    }
+  }
+
+  async function createEntry(kind: "file" | "folder") {
+    const name = await textPromptStore.ask({
+      title: kind === "file" ? "New file" : "New folder",
+      actionLabel: "Create",
+      variant: "primary",
+      placeholder: kind === "file" ? "config.yml" : "backups",
+      required: true,
+      hint: `Created in ${currentPath === "" ? "the server's root folder" : currentPath}.`,
+    });
+    if (name === null) {
+      return;
+    }
+
+    try {
+      if (kind === "file") {
+        await api.createServerFile(server.id, currentPath, name);
+      } else {
+        await api.createServerDir(server.id, currentPath, name);
+      }
+      await loadDir(currentPath);
+      toastsStore.success(`Created ${name}`);
+    } catch (error) {
+      toastsStore.error(String(error));
+    }
+  }
+
+  async function renameEntry(entry: DirEntry) {
+    const newName = await textPromptStore.ask({
+      title: `Rename ${entry.name}`,
+      actionLabel: "Rename",
+      variant: "primary",
+      placeholder: entry.name,
+      initialValue: entry.name,
+      required: true,
+    });
+    if (newName === null || newName === entry.name) {
+      return;
+    }
+
+    try {
+      await api.renameServerFile(server.id, entry.relPath, newName);
+      await loadDir(currentPath);
+      toastsStore.success(`Renamed to ${newName}`);
     } catch (error) {
       toastsStore.error(String(error));
     }
@@ -244,6 +319,7 @@
         icon: ExternalLink,
         action: () => revealEntry(entry),
       },
+      { label: "Rename…", icon: PenLine, action: () => renameEntry(entry) },
       { label: "Copy name", icon: Copy, action: () => copyToClipboard(entry.name, "Copied name") },
       "separator",
       {
@@ -266,10 +342,12 @@
   {/if}
   {#if openFile !== null}
     <div class="editor-head">
-      <Button variant="ghost" onclick={() => (openFile = null)}>
+      <Button variant="ghost" onclick={closeEditor}>
         <ArrowLeft size={15} /> Back to files
       </Button>
-      <code class="editing">{openFile}</code>
+      <code class="editing">
+        {openFile}{#if hasUnsavedEdits}<span class="unsaved">• unsaved</span>{/if}
+      </code>
       <Button disabled={savingFile} onclick={saveFile}><Save size={15} /> Save</Button>
     </div>
     <div class="editor">
@@ -305,6 +383,18 @@
       <span class="drop-hint">
         {importing ? "adding files…" : "drag files here to add them"}
       </span>
+      <div class="new-entry-actions">
+        <Button variant="soft" onclick={() => createEntry("file")} title="Create a new file here">
+          <FilePlus size={15} /> New file
+        </Button>
+        <Button
+          variant="soft"
+          onclick={() => createEntry("folder")}
+          title="Create a new folder here"
+        >
+          <FolderPlus size={15} /> New folder
+        </Button>
+      </div>
     </nav>
 
     {#if loading && entries.length === 0}
@@ -383,6 +473,14 @@
   .drop-overlay p {
     margin: 0;
     font-size: 0.95rem;
+  }
+
+  /* Sits at the right-hand end of the breadcrumb row, after the drag hint —
+     hence the left margin as well as the gap between the two buttons. */
+  .new-entry-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: 0.85rem;
   }
 
   .drop-hint {
@@ -495,6 +593,12 @@
     display: flex;
     align-items: center;
     gap: 0.6rem;
+  }
+
+  .unsaved {
+    margin-left: 0.5rem;
+    color: var(--warning, #ffb454);
+    font-weight: 700;
   }
 
   .editing {

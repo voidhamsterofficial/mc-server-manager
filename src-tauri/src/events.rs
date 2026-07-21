@@ -16,5 +16,11 @@ pub const SERVER_PLAYERS: &str = "server:players";
 /// Periodic resource usage sample: [`crate::process::stats::StatsEvent`].
 pub const SERVER_STATS: &str = "server:stats";
 
+/// A server's process ended unexpectedly: [`crate::process::CrashedEvent`].
+/// Emitted by the process supervisor; whether to restart is *policy* and
+/// lives in `servers::service`, which listens for this — the low-level
+/// process layer deliberately doesn't reach back up into the start path.
+pub const SERVER_CRASHED: &str = "server:crashed";
+
 /// A backup finished for a server (payload: the server id string).
 pub const BACKUP_CREATED: &str = "server:backup-created";

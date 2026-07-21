@@ -12,7 +12,7 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
@@ -72,6 +72,14 @@ pub struct SampleTarget {
 pub struct PlayersEvent {
     pub server_id: String,
     pub players: Vec<String>,
+}
+
+/// Payload of the `server:crashed` event. Deserialized as well as serialized:
+/// the restart policy in `servers::service` reads it back off the event bus.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CrashedEvent {
+    pub server_id: String,
 }
 
 /// Payload of the `server:status` event.
@@ -628,16 +636,62 @@ fn quote_if_needed(part: &str) -> String {
     format!("\"{part}\"")
 }
 
-/// Splits a custom start command on whitespace (no quoting support yet).
+/// Splits a custom start command into a program and its arguments, honouring
+/// quotes. Quoting matters more than it looks: Java's default location on
+/// Windows lives under `C:\Program Files\...`, so a plain whitespace split
+/// turns one program path into three broken arguments.
+fn split_command_line(command_line: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut has_current = false;
+    let mut quote: Option<char> = None;
+
+    for character in command_line.chars() {
+        if let Some(open_quote) = quote {
+            if character == open_quote {
+                quote = None;
+            } else {
+                current.push(character);
+            }
+            continue;
+        }
+
+        if character == '"' || character == '\'' {
+            // An empty quoted string is still an argument, so remember the
+            // part exists even if nothing lands in it.
+            quote = Some(character);
+            has_current = true;
+            continue;
+        }
+
+        if character.is_whitespace() {
+            if has_current {
+                parts.push(std::mem::take(&mut current));
+                has_current = false;
+            }
+            continue;
+        }
+
+        current.push(character);
+        has_current = true;
+    }
+
+    if has_current {
+        parts.push(current);
+    }
+    parts
+}
+
+/// Builds a command from the user's custom start command.
 fn parse_custom_command(custom_command: &str) -> AppResult<Command> {
-    let mut parts = custom_command.split_whitespace();
-    let Some(program) = parts.next() else {
+    let parts = split_command_line(custom_command);
+    let Some((program, arguments)) = parts.split_first() else {
         let message = "the custom start command is empty".to_string();
         return Err(AppError::InvalidInput(message));
     };
 
     let mut command = Command::new(program);
-    command.args(parts);
+    command.args(arguments);
     Ok(command)
 }
 
@@ -809,10 +863,11 @@ async fn supervise(
     remove_pid_file(&server_dir);
 
     let stop_was_requested = remove_handle(&running, &server_id).await;
-    let final_status = if stop_was_requested || exit_was_clean {
-        ServerStatus::Stopped
-    } else {
+    let crashed = !stop_was_requested && !exit_was_clean;
+    let final_status = if crashed {
         ServerStatus::Crashed
+    } else {
+        ServerStatus::Stopped
     };
     emit_status(&app, &server_id, final_status);
 
@@ -824,6 +879,42 @@ async fn supervise(
         players: Vec::new(),
     };
     emit_event(&app, events::SERVER_PLAYERS, empty_player_list);
+
+    if !crashed {
+        // A stop we asked for ends any crash streak.
+        state.crash_restarts.lock().await.remove(&server_id);
+        return;
+    }
+
+    // Report it and stop there. Whether to restart is policy, and policy
+    // lives in `servers::service` — reaching into the start path from here
+    // would make this supervisor spawn its own successor.
+    let crash = CrashedEvent {
+        server_id: server_id.clone(),
+    };
+    emit_event(&app, events::SERVER_CRASHED, crash);
+}
+
+/// Writes one ServerForge line into a server's console, for things the server
+/// itself didn't say (orphan recovery, automatic restarts).
+pub fn announce(app: &AppHandle, server_id: &str, text: String, level: LogLevel) {
+    let color = match level {
+        LogLevel::Error => "#ff6b81",
+        _ => "#ffaa00",
+    };
+    let line = ConsoleLine {
+        spans: vec![ConsoleSpan {
+            text,
+            color: Some(color.to_string()),
+            bold: false,
+        }],
+        level,
+    };
+    let batch = ConsoleBatchEvent {
+        server_id: server_id.to_string(),
+        lines: vec![line],
+    };
+    emit_event(app, events::SERVER_CONSOLE, batch);
 }
 
 enum PlayerChange {
@@ -967,5 +1058,58 @@ fn emit_status(app: &AppHandle, server_id: &str, status: ServerStatus) {
 pub(crate) fn emit_event<P: Serialize + Clone>(app: &AppHandle, event_name: &str, payload: P) {
     if let Err(error) = app.emit(event_name, payload) {
         log::warn!("failed to emit {event_name}: {error}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn splits_a_plain_command_line() {
+        assert_eq!(
+            split_command_line("java -Xmx4G -jar server.jar nogui"),
+            vec!["java", "-Xmx4G", "-jar", "server.jar", "nogui"]
+        );
+    }
+
+    #[test]
+    fn keeps_quoted_paths_in_one_piece() {
+        // The case that mattered: Java's default install path on Windows.
+        let parts = split_command_line(r#""C:\Program Files\Java\bin\java.exe" -jar server.jar"#);
+        assert_eq!(
+            parts,
+            vec![r"C:\Program Files\Java\bin\java.exe", "-jar", "server.jar"]
+        );
+    }
+
+    #[test]
+    fn handles_single_quotes_and_quoted_arguments() {
+        assert_eq!(
+            split_command_line("java -jar 'my server.jar' nogui"),
+            vec!["java", "-jar", "my server.jar", "nogui"]
+        );
+    }
+
+    #[test]
+    fn treats_an_empty_quoted_argument_as_an_argument() {
+        assert_eq!(
+            split_command_line(r#"java -Dname="""#),
+            vec!["java", "-Dname="]
+        );
+    }
+
+    #[test]
+    fn collapses_runs_of_whitespace() {
+        assert_eq!(
+            split_command_line("  java   -jar   server.jar  "),
+            vec!["java", "-jar", "server.jar"]
+        );
+    }
+
+    #[test]
+    fn an_empty_command_line_yields_no_parts() {
+        assert!(split_command_line("   ").is_empty());
+        assert!(parse_custom_command("   ").is_err());
     }
 }
