@@ -208,6 +208,24 @@ impl Db {
         Ok(())
     }
 
+    /// Follows an addon's install record to its new file name. Enabling and
+    /// disabling renames the jar (`foo.jar` <-> `foo.jar.disabled`), and the
+    /// record is keyed by file name — without this the provenance is orphaned
+    /// and update checks quietly stop covering the addon.
+    pub fn rename_plugin_install(
+        &self,
+        server_id: &str,
+        old_file_name: &str,
+        new_file_name: &str,
+    ) -> AppResult<()> {
+        self.conn.execute(
+            "UPDATE plugin_installs SET file_name = ?3
+             WHERE server_id = ?1 AND file_name = ?2",
+            params![server_id, old_file_name, new_file_name],
+        )?;
+        Ok(())
+    }
+
     pub fn clear_plugin_installs(&self, server_id: &str) -> AppResult<()> {
         self.conn.execute(
             "DELETE FROM plugin_installs WHERE server_id = ?1",

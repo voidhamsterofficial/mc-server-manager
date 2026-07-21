@@ -72,6 +72,14 @@ export function resolveBackupsDir(server: ServerConfig): string {
   return `${server.dir}${separator}backups`;
 }
 
+/** The absolute path of a file inside a server's folder, from the
+ *  forward-slashed relative path the file browser works in. */
+export function resolveServerFilePath(server: ServerConfig, relPath: string): string {
+  const separator = server.dir.includes("/") ? "/" : "\\";
+  const nativeRelPath = relPath.split("/").join(separator);
+  return `${server.dir}${separator}${nativeRelPath}`;
+}
+
 export interface McVersion {
   id: string;
   type: string;
@@ -296,10 +304,20 @@ export const api = {
     invoke<void>("write_server_file", { serverId, relPath, contents }),
   deleteServerFile: (serverId: string, relPath: string) =>
     invoke<void>("delete_server_file", { serverId, relPath }),
+  /** Copies a file from disk into `relDir`; resolves with the name it landed under. */
+  importServerFile: (serverId: string, relDir: string, sourcePath: string) =>
+    invoke<string>("import_server_file", { serverId, relDir, sourcePath }),
   listPlugins: (serverId: string) =>
     invoke<InstalledPlugin[]>("list_plugins", { serverId }),
   setPluginEnabled: (serverId: string, fileName: string, enabled: boolean) =>
     invoke<string>("set_plugin_enabled", { serverId, fileName, enabled }),
+  /** The command this server launches with by default, ignoring any custom
+   *  start command override. */
+  previewStartCommand: (serverId: string) =>
+    invoke<string>("preview_start_command", { serverId }),
+  /** Installs a `.jar` from disk into the server's `plugins/` folder. */
+  importPluginJar: (serverId: string, sourcePath: string) =>
+    invoke<InstalledPlugin>("import_plugin_jar", { serverId, sourcePath }),
   deletePlugin: (serverId: string, fileName: string) =>
     invoke<void>("delete_plugin", { serverId, fileName }),
   searchPlugins: (serverId: string, source: AddonSource, query: string) =>

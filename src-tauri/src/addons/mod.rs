@@ -7,9 +7,11 @@
 //! convention Bukkit- and Forge-family loaders already understand.
 //!
 //! Sibling modules cover where addons come from: [`sources`] (the Modrinth /
-//! SpigotMC / CurseForge marketplaces) and the [`plugins`] / [`mods`] folder
+//! SpigotMC / CurseForge marketplaces), [`cache`] (which keeps us from asking
+//! them the same question twice), and the [`plugins`] / [`mods`] folder
 //! wrappers built on top of it.
 
+pub mod cache;
 pub mod mods;
 pub mod plugins;
 pub mod sources;
@@ -93,6 +95,45 @@ pub fn list_installed(dir: &Path) -> AppResult<Vec<InstalledAddon>> {
     Ok(addons)
 }
 
+/// Copies a jar from anywhere on disk into an addon folder, replacing any
+/// jar already there under that name. Only `.jar` files are accepted — the
+/// addon folders are loaded blindly by the server at startup, so letting
+/// anything else in just plants a file that will never load.
+///
+/// No install record is written: a hand-dropped jar has no marketplace
+/// provenance, so it's listed and toggleable like any other addon but sits
+/// out of update checks.
+pub fn import_jar(dir: &Path, source_path: &Path) -> AppResult<InstalledAddon> {
+    if !source_path.is_file() {
+        return Err(AppError::InvalidInput(
+            "that isn't a file — drop a .jar".to_string(),
+        ));
+    }
+
+    let raw_name = source_path
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .ok_or_else(|| AppError::InvalidInput("that file has no name".to_string()))?;
+    if !raw_name.to_lowercase().ends_with(".jar") {
+        return Err(AppError::InvalidInput(format!(
+            "{raw_name} isn't a .jar file"
+        )));
+    }
+    let file_name = safe_file_name(&raw_name)?.to_string();
+
+    std::fs::create_dir_all(dir)?;
+    let destination = dir.join(&file_name);
+    std::fs::copy(source_path, &destination)?;
+
+    let size_bytes = std::fs::metadata(&destination).map(|meta| meta.len())?;
+    Ok(InstalledAddon {
+        display_name: display_name(&file_name),
+        enabled: true,
+        size_bytes,
+        file_name,
+    })
+}
+
 /// Enables or disables an addon by renaming its jar. Returns the new file name.
 pub fn set_enabled(dir: &Path, file_name: &str, enabled: bool) -> AppResult<String> {
     let file_name = safe_file_name(file_name)?;
@@ -167,6 +208,36 @@ mod tests {
         assert!(safe_file_name("sub/evil.jar").is_err());
         assert!(safe_file_name("..").is_err());
         assert!(safe_file_name("").is_err());
+    }
+
+    #[test]
+    fn import_jar_rejects_non_jars() {
+        let dir = std::env::temp_dir().join("serverforge-import-jar-test");
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let source = dir.join("notes.txt");
+        std::fs::write(&source, b"not a plugin").expect("write source");
+
+        let outcome = import_jar(&dir.join("plugins"), &source);
+        assert!(outcome.is_err());
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn import_jar_copies_into_the_addon_folder() {
+        let dir = std::env::temp_dir().join("serverforge-import-jar-ok-test");
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let source = dir.join("CoolPlugin.jar");
+        std::fs::write(&source, b"jar bytes").expect("write source");
+        let plugins = dir.join("plugins");
+
+        let imported = import_jar(&plugins, &source).expect("import");
+        assert_eq!(imported.file_name, "CoolPlugin.jar");
+        assert_eq!(imported.display_name, "CoolPlugin");
+        assert!(imported.enabled);
+        assert!(plugins.join("CoolPlugin.jar").is_file());
+
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

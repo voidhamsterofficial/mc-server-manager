@@ -12,11 +12,25 @@
     Sun,
     Moon,
     CloudSun,
+    User,
+    UserMinus,
+    Navigation,
   } from "@lucide/svelte";
   import { api, type ServerConfig } from "../../ipc/api";
+  import {
+    applyCompletion,
+    suggestCompletions,
+    usageHint,
+    type Suggestion,
+  } from "../../util/mcCommands";
+  import {
+    BEDROCK_DATA_KEY,
+    loadCommandData,
+    type McCommandData,
+  } from "../../util/mcData";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
-  import { contextMenuStore, type MenuEntry } from "../../stores/contextMenu.svelte";
+  import { contextMenuStore, type MenuEntry, type MenuItem } from "../../stores/contextMenu.svelte";
   import ConsoleView from "../../components/ConsoleView.svelte";
   import Button from "../../components/Button.svelte";
 
@@ -55,6 +69,7 @@
       return;
     }
     commandText = "";
+    suggestionsOpen = false;
     await runCommand(command);
   }
 
@@ -66,6 +81,89 @@
       const end = commandText.length;
       commandInput?.setSelectionRange(end, end);
     });
+  }
+
+  const onlinePlayers = $derived(serversStore.playersOf(server.id));
+
+  // --- Command autocomplete ----------------------------------------------
+
+  let suggestionsOpen = $state(false);
+  let highlightedIndex = $state(0);
+
+  /** This server's version's command set, or null when we have no data for
+   *  it — completion is per-version, and a version we don't know is one we
+   *  say nothing about rather than guess at. */
+  let commandData = $state<McCommandData | null>(null);
+
+  $effect(() => {
+    const versionKey = isBedrock ? BEDROCK_DATA_KEY : server.mcVersion;
+    let isStale = false;
+
+    commandData = null;
+    void loadCommandData(versionKey).then((data) => {
+      if (!isStale) {
+        commandData = data;
+      }
+    });
+
+    return () => {
+      isStale = true;
+    };
+  });
+
+  const suggestions = $derived(
+    suggestionsOpen ? suggestCompletions(commandText, commandData, onlinePlayers) : [],
+  );
+  const hint = $derived(usageHint(commandText, commandData));
+
+  const commandPlaceholder = $derived.by(() => {
+    if (!canCommand) {
+      return "Start the server to send commands";
+    }
+    if (commandData === null) {
+      return `Type a command… (no completions for ${server.mcVersion})`;
+    }
+    return "Type a command… (Tab to complete)";
+  });
+
+  function handleInput() {
+    suggestionsOpen = true;
+    highlightedIndex = 0;
+  }
+
+  function acceptSuggestion(suggestion: Suggestion) {
+    commandText = applyCompletion(commandText, suggestion.value);
+    highlightedIndex = 0;
+    // Still open: the next argument usually has completions of its own.
+    suggestionsOpen = true;
+    commandInput?.focus();
+  }
+
+  /** Tab/Enter accept, arrows move, Escape dismisses without clearing the
+   *  box. Enter only completes when a suggestion is highlighted, so the
+   *  common case — typing a whole command and hitting Enter — still sends. */
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape") {
+      suggestionsOpen = false;
+      return;
+    }
+    if (suggestions.length === 0) {
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      highlightedIndex = (highlightedIndex + 1) % suggestions.length;
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      highlightedIndex = (highlightedIndex - 1 + suggestions.length) % suggestions.length;
+      return;
+    }
+    if (event.key === "Tab") {
+      event.preventDefault();
+      acceptSuggestion(suggestions[highlightedIndex]);
+    }
   }
 
   function quickCommands(): MenuEntry[] {
@@ -89,18 +187,40 @@
     }
     entries.push(
       { label: "Broadcast (say)…", icon: Megaphone, tone: "info", action: () => prefill("say ") },
-      {
-        label: "Give item…",
-        icon: Gift,
-        tone: "success",
-        disabled: isBedrock,
-        action: () => prefill("give "),
-      },
+      withPlayerPicker("Give item…", Gift, "success", "give ", isBedrock),
       { label: "Set gamemode…", icon: Gamepad2, tone: "info", action: () => prefill("gamemode ") },
       { label: "Difficulty…", icon: Swords, tone: "warning", action: () => prefill("difficulty ") },
-      { label: "Op player…", icon: Crown, tone: "warning", action: () => prefill("op ") },
+      withPlayerPicker("Op player…", Crown, "warning", "op ", false),
+      withPlayerPicker("Kick player…", UserMinus, "warning", "kick ", false),
+      withPlayerPicker("Teleport to…", Navigation, "info", "tp ", isBedrock),
     );
     return entries;
+  }
+
+  /** A quick command whose first argument is a player: clicking it prefills
+   *  the bare command, hovering offers the online players directly. */
+  function withPlayerPicker(
+    label: string,
+    icon: MenuItem["icon"],
+    tone: MenuItem["tone"],
+    prefix: string,
+    disabled: boolean,
+  ): MenuItem {
+    const playerEntries: MenuItem[] = onlinePlayers.map((player) => ({
+      label: player,
+      icon: User,
+      tone: "info",
+      action: () => prefill(`${prefix}${player} `),
+    }));
+    return {
+      label,
+      icon,
+      tone,
+      disabled,
+      submenu: playerEntries,
+      emptySubmenuLabel: "No players online",
+      action: () => prefill(prefix),
+    };
   }
 
   function openQuickCommands(event: MouseEvent) {
@@ -123,16 +243,48 @@
     >
       <Zap size={18} fill="currentColor" strokeWidth={1.5} />
     </Button>
-    <input
-      bind:this={commandInput}
-      type="text"
-      bind:value={commandText}
-      placeholder={canCommand
-        ? "Type a command… (e.g. say hi)"
-        : "Start the server to send commands"}
-      disabled={!canCommand}
-      spellcheck="false"
-    />
+    <div class="command-field">
+      {#if suggestions.length > 0}
+        <ul class="suggestions" role="listbox">
+          {#each suggestions as suggestion, index (suggestion.value)}
+            <li>
+              <button
+                type="button"
+                class="suggestion"
+                class:highlighted={index === highlightedIndex}
+                role="option"
+                aria-selected={index === highlightedIndex}
+                onmouseenter={() => (highlightedIndex = index)}
+                onmousedown={(event) => {
+                  // mousedown, not click: blur fires first and would close the
+                  // list before a click ever landed. preventDefault keeps focus
+                  // in the input so the caret never leaves.
+                  event.preventDefault();
+                  acceptSuggestion(suggestion);
+                }}
+              >
+                <span class="suggestion-value">{suggestion.value}</span>
+                <span class="suggestion-detail">{suggestion.detail}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {:else if hint !== null}
+        <p class="usage-hint">{hint}</p>
+      {/if}
+      <input
+        bind:this={commandInput}
+        type="text"
+        bind:value={commandText}
+        placeholder={commandPlaceholder}
+        disabled={!canCommand}
+        spellcheck="false"
+        autocomplete="off"
+        oninput={handleInput}
+        onkeydown={handleKeydown}
+        onblur={() => (suggestionsOpen = false)}
+      />
+    </div>
     <Button type="submit" disabled={!canCommand}>
       <Send size={16} />
       Send
@@ -156,6 +308,89 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-soft);
     padding: 0.75rem;
+  }
+
+  /* Anchors the suggestion popup, which floats above the input rather than
+     pushing the console around as it appears and disappears. */
+  .command-field {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+  }
+
+  .command-field input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .suggestions,
+  .usage-hint {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 0.4rem);
+    z-index: 20;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .suggestions {
+    right: 0;
+    max-height: 240px;
+    overflow-y: auto;
+    list-style: none;
+    margin: 0;
+    padding: 0.25rem;
+  }
+
+  .usage-hint {
+    margin: 0;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .suggestion {
+    width: 100%;
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    text-align: left;
+    color: var(--text);
+    cursor: pointer;
+    padding: 0.35rem 0.5rem;
+    border-radius: var(--radius-sm);
+  }
+
+  .suggestion.highlighted {
+    background: var(--surface-2);
+  }
+
+  .suggestion-value {
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+
+  .suggestion-detail {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+    font-size: 0.76rem;
+    font-family: var(--font-mono);
+    color: var(--muted);
   }
 
   .command-row {

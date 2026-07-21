@@ -110,13 +110,11 @@
     margin: 0 0 1.25rem;
   }
 
-  /* auto-fit + a 1fr max counts columns from the 320px minimum (a definite
-     max like 560px would count from the max and waste a whole column of
-     space); the card itself caps its width so a lone server isn't a
-     screen-wide slab. */
+  /* Always two per row, at any window width — the cards grow to fill the
+     space rather than a third column appearing on a wide screen. */
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 1.4rem;
   }
 

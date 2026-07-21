@@ -36,7 +36,7 @@
   import { serversStore } from "./lib/stores/servers.svelte";
   import { statsStore } from "./lib/stores/stats.svelte";
   import { toastsStore } from "./lib/stores/toasts.svelte";
-  import { formatBytes } from "./lib/util/format";
+  import { formatFileSize } from "./lib/util/format";
   import {
     onConsoleBatch,
     onInstallProgress,
@@ -68,7 +68,7 @@
       return "";
     }
     if (javaDownload.totalBytes === null) {
-      return formatBytes(javaDownload.downloadedBytes);
+      return formatFileSize(javaDownload.downloadedBytes);
     }
     const percent = Math.round((javaDownload.downloadedBytes / javaDownload.totalBytes) * 100);
     return `${percent}%`;

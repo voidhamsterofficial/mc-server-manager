@@ -127,6 +127,11 @@
           },
         ],
         [
+          {
+            text: "Already have a jar? Drag it from your file manager anywhere onto the Plugins tab to install it. Hand-added jars work like any other, but ServerForge has no marketplace record for them, so they sit out of update checks.",
+          },
+        ],
+        [
           { text: "Plugins load at startup, so restart the server after adding or disabling one. Their config files appear in the " },
           { text: "Files tab", link: { kind: "topic", topicId: "files" } },
           { text: " under plugins/ once the server has run at least once." },
@@ -164,12 +169,17 @@
       paragraphs: [
         [
           {
-            text: "The Console streams live output with Minecraft and ANSI colors, word wrap, and a 5000-line buffer. Type any command and press Send, or hit the quick-commands button for shortcuts (list, save, time, weather, broadcast, gamemode, and more).",
+            text: "The Console streams live output with Minecraft and ANSI colors, word wrap, and a 5000-line buffer. It follows new output automatically; scroll up to read back and a Jump to latest button appears. Type any command and press Send, or hit the quick-commands button for shortcuts (list, save, time, weather, broadcast, gamemode, and more) — hover one that needs a player to pick from whoever is online.",
           },
         ],
         [
           {
             text: "Right-click the console to copy — either just your selection, or the whole buffer for pasting into a bug report.",
+          },
+        ],
+        [
+          {
+            text: "The command box completes as you type: press Tab to accept a command name, a subcommand, an online player, or an item. Completions come from the Minecraft version's own command data, so a server running a version ServerForge has no data for simply gets no suggestions rather than wrong ones.",
           },
         ],
       ],
@@ -182,12 +192,12 @@
       paragraphs: [
         [
           {
-            text: "The Files tab is a browser scoped to the server's own folder — navigate the tree, open any text file (server.properties, ops.json, plugin configs, logs) in the built-in editor, save, or delete. It can't reach outside the server directory.",
+            text: "The Files tab is a browser scoped to the server's own folder — navigate the tree, open any text file (server.properties, ops.json, plugin configs, logs) in the built-in editor, save, or delete. The editor shows line numbers and colours the syntax of the format it recognises. It can't reach outside the server directory.",
           },
         ],
         [
           {
-            text: "Right-click any file or folder for its actions: open or edit it, copy its name, or delete it.",
+            text: "Right-click any file or folder for its actions: open or edit it, show it in your system file manager, copy its name, or delete it. To add files, drag them in from your file manager — they land in the folder you're currently viewing, so drop plugin jars straight into plugins/.",
           },
         ],
         [

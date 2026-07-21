@@ -4,8 +4,14 @@
   import { Puzzle, Trash2, Moon, Sun, Search, Download, ArrowUpCircle, CircleCheck } from "@lucide/svelte";
   import type { AddonSearchResult, AddonSource, AddonUpdateStatus, InstalledPlugin } from "../ipc/api";
   import { toastsStore } from "../stores/toasts.svelte";
-  import { formatBytes } from "../util/format";
+  import { formatFileSize } from "../util/format";
+  import { watchFileDrops, filterByExtension } from "../util/dragDrop";
   import Button from "./Button.svelte";
+
+  /** Matches `SEARCH_RESULT_LIMIT` in the backend's `addons::sources`. One
+   *  page, no pagination and no infinite scroll: a browse is exactly one
+   *  request, however long the user stares at it. */
+  const RESULT_LIMIT = 20;
 
   interface SourceOption {
     value: AddonSource;
@@ -29,6 +35,9 @@
     install: (serverId: string, source: AddonSource, projectId: string) => Promise<InstalledPlugin>;
     checkUpdates: (serverId: string) => Promise<AddonUpdateStatus[]>;
     update: (serverId: string, fileName: string) => Promise<InstalledPlugin>;
+    /** Installs a jar from disk. Supplying it turns on drag-and-drop; leave it
+     *  out and the tab simply has no drop zone. */
+    importJar?: (serverId: string, sourcePath: string) => Promise<InstalledPlugin>;
   }
 
   let {
@@ -44,6 +53,7 @@
     install,
     checkUpdates,
     update,
+    importJar,
   }: Props = $props();
 
   let installed = $state<InstalledPlugin[]>([]);
@@ -59,11 +69,21 @@
   let searching = $state(false);
   let installingId = $state<string | null>(null);
   let searched = $state(false);
+  /** Ticket for the most recent browse, so out-of-order responses can be
+   *  discarded rather than overwriting fresher results. */
+  let latestBrowseId = 0;
+  /** The query whose results are on screen, to swallow repeat submits. */
+  let lastBrowsedQuery: string | null = null;
+
+  let isDropTargeted = $state(false);
+  let importingJars = $state(false);
 
   $effect(() => {
-    // Reload when the server changes.
+    // Reload when the server changes. This is the one place an update check
+    // is worth its request count; the cache in front of the marketplace keeps
+    // a quick tab revisit from re-running it for real.
     void serverId;
-    loadInstalled();
+    loadInstalledAndCheckUpdates();
   });
 
   $effect(() => {
@@ -73,9 +93,62 @@
     void serverId;
     void source;
     searchQuery = "";
+    lastBrowsedQuery = "";
     browse("");
   });
 
+  $effect(() => {
+    if (importJar === undefined) {
+      return;
+    }
+    return watchFileDrops({
+      isAccepting: () => !importingJars,
+      onHoverChange: (isOver) => (isDropTargeted = isOver),
+      onDrop: (paths) => void importDroppedJars(paths),
+    });
+  });
+
+  /** Installs jars dragged in from the file manager. Anything that isn't a
+   *  jar is dropped here rather than sent on — an addon folder only ever
+   *  wants jars, and one clear message beats one error per stray file. */
+  async function importDroppedJars(paths: string[]) {
+    if (importJar === undefined) {
+      return;
+    }
+    const jarPaths = filterByExtension(paths, ".jar");
+    if (jarPaths.length === 0) {
+      toastsStore.error("Only .jar files can be added here");
+      return;
+    }
+
+    importingJars = true;
+    const failures: string[] = [];
+    let importedCount = 0;
+    for (const jarPath of jarPaths) {
+      try {
+        await importJar(serverId, jarPath);
+        importedCount += 1;
+      } catch (error) {
+        failures.push(String(error));
+      }
+    }
+    importingJars = false;
+
+    if (importedCount > 0) {
+      // Hand-dropped jars carry no marketplace provenance, so there is
+      // nothing for an update check to look up — just re-read the folder.
+      await loadInstalled();
+      const skipped = paths.length - jarPaths.length;
+      const skippedNote = skipped > 0 ? ` (${skipped} non-jar skipped)` : "";
+      toastsStore.success(`Added ${importedCount} ${kind}(s)${skippedNote}`);
+    }
+    for (const failure of failures) {
+      toastsStore.error(failure);
+    }
+  }
+
+  /** Reloads the installed list. Reads the addon folder only — no marketplace
+   *  requests, so it's free to call after any local change. */
   async function loadInstalled() {
     loadingInstalled = true;
     try {
@@ -85,7 +158,15 @@
     } finally {
       loadingInstalled = false;
     }
-    refreshUpdates();
+  }
+
+  /** Reloads the list *and* re-checks every addon against its marketplace.
+   *  That's one request per installed addon, so it's reserved for the changes
+   *  that can actually alter the answer: arriving, and being updated.
+   *  Enabling, disabling and removing are handled locally instead. */
+  async function loadInstalledAndCheckUpdates() {
+    await loadInstalled();
+    await refreshUpdates();
   }
 
   async function refreshUpdates() {
@@ -106,26 +187,51 @@
       searched = false;
       return;
     }
+
+    // Only the newest browse may write to `results`. Switching source or
+    // server fires a fresh one, and without this a slower earlier request
+    // could land afterwards and repopulate the list with the wrong
+    // marketplace's addons.
+    const requestId = ++latestBrowseId;
     searching = true;
     try {
-      results = await search(serverId, source, query);
+      const found = await search(serverId, source, query);
+      if (requestId !== latestBrowseId) {
+        return;
+      }
+      results = found;
       searched = true;
     } catch (error) {
-      toastsStore.error(String(error));
+      if (requestId === latestBrowseId) {
+        toastsStore.error(String(error));
+      }
     } finally {
-      searching = false;
+      if (requestId === latestBrowseId) {
+        searching = false;
+      }
     }
   }
 
   function submitSearch(event: SubmitEvent) {
     event.preventDefault();
-    browse(searchQuery.trim());
+    const query = searchQuery.trim();
+    // Re-submitting the query already on screen would just re-ask the
+    // marketplace for the list the user is looking at.
+    if (searching || query === lastBrowsedQuery) {
+      return;
+    }
+    lastBrowsedQuery = query;
+    browse(query);
   }
 
   async function toggle(plugin: InstalledPlugin) {
     busyFile = plugin.fileName;
     try {
-      await setEnabled(serverId, plugin.fileName, !plugin.enabled);
+      const newFileName = await setEnabled(serverId, plugin.fileName, !plugin.enabled);
+      // Enabling/disabling renames the jar, and the updates map is keyed by
+      // file name — re-key it rather than spend a round of marketplace
+      // requests re-deriving something that hasn't changed upstream.
+      updates = renameUpdateKey(updates, plugin.fileName, newFileName);
       await loadInstalled();
       toastsStore.success(plugin.enabled ? `${kind} disabled` : `${kind} enabled`);
     } catch (error) {
@@ -140,6 +246,10 @@
     busyFile = plugin.fileName;
     try {
       await remove(serverId, plugin.fileName);
+      // Drop its update entry locally; nothing else's status changed.
+      const remaining = new Map(updates);
+      remaining.delete(plugin.fileName);
+      updates = remaining;
       await loadInstalled();
       toastsStore.show(`Removed ${plugin.displayName}`);
     } catch (error) {
@@ -153,7 +263,7 @@
     installingId = result.projectId;
     try {
       const plugin = await install(serverId, result.source, result.projectId);
-      await loadInstalled();
+      await loadInstalledAndCheckUpdates();
       toastsStore.success(`Installed ${plugin.displayName}`);
     } catch (error) {
       toastsStore.error(String(error));
@@ -166,13 +276,29 @@
     busyFile = plugin.fileName;
     try {
       const updated = await update(serverId, plugin.fileName);
-      await loadInstalled();
+      await loadInstalledAndCheckUpdates();
       toastsStore.success(`Updated ${updated.displayName}`);
     } catch (error) {
       toastsStore.error(String(error));
     } finally {
       busyFile = null;
     }
+  }
+
+  /** Moves an addon's update status to the file name it now has on disk. */
+  function renameUpdateKey(
+    current: Map<string, AddonUpdateStatus>,
+    oldFileName: string,
+    newFileName: string,
+  ): Map<string, AddonUpdateStatus> {
+    const status = current.get(oldFileName);
+    if (status === undefined || oldFileName === newFileName) {
+      return current;
+    }
+    const renamed = new Map(current);
+    renamed.delete(oldFileName);
+    renamed.set(newFileName, { ...status, fileName: newFileName });
+    return renamed;
   }
 
   function hideBrokenIcon(event: Event) {
@@ -193,12 +319,26 @@
 </script>
 
 <div class="addon-manager">
+  {#if isDropTargeted}
+    <div class="drop-overlay" transition:fade={{ duration: 120 }}>
+      <Download size={28} />
+      <p>Drop <strong>.jar</strong> files to add them</p>
+    </div>
+  {/if}
+
   <section class="installed">
     <div class="section-head">
       <h3>Installed {kind}s</h3>
-      {#if checkingUpdates}<span class="muted small">Checking for updates…</span>{/if}
+      {#if importingJars}
+        <span class="muted small">Adding files…</span>
+      {:else if checkingUpdates}
+        <span class="muted small">Checking for updates…</span>
+      {/if}
     </div>
-    <p class="hint">Changes take effect the next time the server starts.</p>
+    <p class="hint">
+      Changes take effect the next time the server starts.{#if importJar}
+        Already have a jar? Drag it anywhere onto this tab.{/if}
+    </p>
 
     {#if loadingInstalled && installed.length === 0}
       <p class="muted">Loading…</p>
@@ -215,7 +355,7 @@
             <div class="plugin-info">
               <span class="plugin-name">{addon.displayName}</span>
               <span class="plugin-meta">
-                {formatBytes(addon.sizeBytes)}{addon.enabled ? "" : " · disabled"}
+                {formatFileSize(addon.sizeBytes)}{addon.enabled ? "" : " · disabled"}
                 {#if updateStatus?.hasUpdate}
                   · <span class="update-badge">update available{updateStatus.latestVersion ? ` (${updateStatus.latestVersion})` : ""}</span>
                 {/if}
@@ -335,6 +475,11 @@
             </li>
           {/each}
         </ul>
+        {#if results.length >= RESULT_LIMIT}
+          <p class="muted small results-note">
+            Showing the top {RESULT_LIMIT} — search to narrow it down.
+          </p>
+        {/if}
       {/if}
     {/if}
   </section>
@@ -342,6 +487,7 @@
 
 <style>
   .addon-manager {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
@@ -492,6 +638,34 @@
     background: var(--accent-soft);
     color: var(--accent-strong);
     border-color: var(--accent-soft);
+  }
+
+  /* Marks the drop zone only — the OS owns the drag, so it never needs to
+     take pointer events. */
+  .drop-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: var(--accent-strong);
+    background: color-mix(in srgb, var(--surface) 82%, var(--accent));
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius-md);
+  }
+
+  .drop-overlay p {
+    margin: 0;
+    font-size: 0.95rem;
+  }
+
+  .results-note {
+    margin: 0.6rem 0 0;
+    text-align: center;
   }
 
   .search-row {

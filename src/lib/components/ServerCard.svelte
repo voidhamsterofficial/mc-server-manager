@@ -5,7 +5,7 @@
   import { serversStore } from "../stores/servers.svelte";
   import { statsStore } from "../stores/stats.svelte";
   import { toastsStore } from "../stores/toasts.svelte";
-  import { formatBytes } from "../util/format";
+  import { formatMemory } from "../util/format";
   import StatusBlob from "./StatusBlob.svelte";
   import Sparkline from "./Sparkline.svelte";
   import Button from "./Button.svelte";
@@ -34,7 +34,7 @@
   const stats = $derived(statsStore.of(server.id));
   const isLive = $derived(stats.latest !== null);
   const cpuText = $derived(isLive ? `${stats.latest!.cpuPercent.toFixed(1)} %` : "—");
-  const memoryText = $derived(isLive ? formatBytes(stats.latest!.memoryBytes) : "—");
+  const memoryText = $derived(isLive ? formatMemory(stats.latest!.memoryBytes) : "—");
   // Fixed scale relative to the configured heap keeps the line stable; the JVM
   // can exceed -Xmx with off-heap memory, hence the 1.5× headroom.
   const memoryScaleMax = $derived(server.memoryMb * BYTES_PER_MB * 1.5);
@@ -119,8 +119,10 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-soft);
+    /* No max-width: the dashboard's fixed two-column grid already stops a
+       lone server becoming a screen-wide slab, and capping here would leave
+       dead space on a wide window instead of letting the cards grow. */
     width: 100%;
-    max-width: 560px;
     padding: 1.4rem 1.5rem;
     display: flex;
     flex-direction: column;

@@ -14,6 +14,12 @@ export interface MenuItem {
   danger?: boolean;
   tone?: MenuTone;
   disabled?: boolean;
+  /** Nested items revealed on hover — e.g. the online players a command can
+   *  be aimed at. An item with a submenu still runs its own `action` when
+   *  clicked, so "Give item…" can prefill without picking a player. */
+  submenu?: MenuItem[];
+  /** Shown in place of an empty submenu (e.g. "nobody online"). */
+  emptySubmenuLabel?: string;
   action: () => void;
 }
 

@@ -67,11 +67,7 @@ pub fn list_dir(server_dir: &Path, rel_path: &str) -> AppResult<Vec<DirEntry>> {
         let metadata = entry.metadata()?;
         let name = entry.file_name().to_string_lossy().to_string();
 
-        let child_rel = if rel_path.is_empty() {
-            name.clone()
-        } else {
-            format!("{}/{}", rel_path.trim_end_matches('/'), name)
-        };
+        let child_rel = join_rel(rel_path, &name);
 
         entries.push(DirEntry {
             name,
@@ -108,6 +104,45 @@ pub fn write_text(server_dir: &Path, rel_path: &str, contents: &str) -> AppResul
     let file = safe_join(server_dir, rel_path)?;
     std::fs::write(file, contents)?;
     Ok(())
+}
+
+/// Copies a file from anywhere on disk into `rel_dir` inside the server
+/// folder, keeping its original name and replacing any file already there.
+/// Returns the name it landed under. Folders are rejected — the browser
+/// imports single files (plugin jars, configs), not trees.
+pub fn import_file(server_dir: &Path, rel_dir: &str, source_path: &Path) -> AppResult<String> {
+    if source_path.is_dir() {
+        return Err(AppError::InvalidInput(
+            "folders can't be dropped in — drop the files inside it".to_string(),
+        ));
+    }
+
+    let file_name = source_path
+        .file_name()
+        .ok_or_else(|| AppError::InvalidInput("that file has no name".to_string()))?
+        .to_string_lossy()
+        .to_string();
+
+    let dir = safe_join(server_dir, rel_dir)?;
+    if !dir.is_dir() {
+        return Err(AppError::InvalidInput(
+            "that destination isn't a folder".to_string(),
+        ));
+    }
+
+    let destination = safe_join(server_dir, &join_rel(rel_dir, &file_name))?;
+    std::fs::copy(source_path, destination)?;
+    Ok(file_name)
+}
+
+/// Joins a child name onto a server-relative directory path, using the
+/// forward slashes the UI works in.
+fn join_rel(rel_dir: &str, name: &str) -> String {
+    if rel_dir.is_empty() {
+        return name.to_string();
+    }
+    let joined = format!("{}/{}", rel_dir.trim_end_matches('/'), name);
+    joined
 }
 
 pub fn delete_entry(server_dir: &Path, rel_path: &str) -> AppResult<()> {

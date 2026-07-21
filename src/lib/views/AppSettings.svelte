@@ -307,7 +307,7 @@
     <p class="hint">
       <button
         class="link"
-        onclick={() => openExternal("https://github.com/Squ1ggly/mc-server-manager")}
+        onclick={() => openExternal("https://github.com/voidhamsterofficial/mc-server-manager")}
       >
         Source &amp; issues on GitHub
       </button>

@@ -6,7 +6,7 @@
   import { onBackupCreated } from "../../ipc/events";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
-  import { formatBytes, formatDateTime } from "../../util/format";
+  import { formatFileSize, formatDateTime } from "../../util/format";
   import { FEATURE_COLOR } from "../../util/features";
   import Button from "../../components/Button.svelte";
 
@@ -52,7 +52,7 @@
     working = true;
     try {
       const created = await api.createBackup(server.id);
-      toastsStore.success(`Backup tucked away safely (${formatBytes(created.sizeBytes)})`);
+      toastsStore.success(`Backup tucked away safely (${formatFileSize(created.sizeBytes)})`);
       await loadBackups(server.id);
     } catch (error) {
       toastsStore.error(String(error));
@@ -118,7 +118,7 @@
           <span class="file">
             <span class="file-name">{backup.fileName}</span>
             <span class="file-meta">
-              {formatDateTime(backup.createdAtUnix)} · {formatBytes(backup.sizeBytes)}
+              {formatDateTime(backup.createdAtUnix)} · {formatFileSize(backup.sizeBytes)}
             </span>
           </span>
           {#if confirming?.fileName === backup.fileName}

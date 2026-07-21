@@ -5,6 +5,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::addons;
+use crate::addons::cache::MarketplaceCache;
 use crate::addons::sources::{self, AddonSearchResult, InstalledAddonVersion, MarketplaceContext};
 use crate::error::AppResult;
 use crate::installers::ProgressCallback;
@@ -36,10 +37,11 @@ pub fn delete(server_dir: &Path, file_name: &str) -> AppResult<()> {
 /// Minecraft version.
 pub async fn search(
     client: &reqwest::Client,
+    cache: &MarketplaceCache,
     ctx: MarketplaceContext<'_>,
     query: &str,
 ) -> AppResult<Vec<AddonSearchResult>> {
-    sources::search(client, ctx, query, PROJECT_TYPE).await
+    sources::search(client, cache, ctx, query, PROJECT_TYPE).await
 }
 
 /// Downloads the newest compatible version of a mod into the server's
@@ -65,10 +67,11 @@ pub async fn install(
 /// marketplace's newest version.
 pub async fn check_for_updates(
     client: &reqwest::Client,
+    cache: &MarketplaceCache,
     server_dir: &Path,
     records: &[crate::storage::db::PluginInstallRecord],
     curseforge_api_key: Option<&str>,
 ) -> AppResult<Vec<ModUpdateStatus>> {
     let installed = list_installed(server_dir)?;
-    Ok(sources::check_for_updates(client, &installed, records, curseforge_api_key).await)
+    Ok(sources::check_for_updates(client, cache, &installed, records, curseforge_api_key).await)
 }

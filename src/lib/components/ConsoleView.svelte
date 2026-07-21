@@ -4,7 +4,8 @@
   // buffer stays smooth without manual virtualization.
 
   import { onMount } from "svelte";
-  import { Copy, FileText, Terminal } from "@lucide/svelte";
+  import { fade } from "svelte/transition";
+  import { ArrowDown, Copy, FileText, Terminal } from "@lucide/svelte";
   import type { ConsoleLine } from "../ipc/events";
   import { contextMenuStore, type MenuEntry } from "../stores/contextMenu.svelte";
   import { toastsStore } from "../stores/toasts.svelte";
@@ -51,67 +52,111 @@
     contextMenuStore.show(event, entries);
   }
 
+  /** Within this many pixels of the bottom still counts as "at the bottom",
+   *  so a stray pixel of rounding doesn't drop the user out of following. */
+  const BOTTOM_THRESHOLD_PX = 40;
+
   let viewport = $state<HTMLDivElement | null>(null);
+  let content = $state<HTMLDivElement | null>(null);
   let stickToBottom = $state(true);
+
+  function distanceFromBottom(element: HTMLDivElement): number {
+    return element.scrollHeight - element.scrollTop - element.clientHeight;
+  }
 
   function handleScroll() {
     if (!viewport) {
       return;
     }
-    const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-    stickToBottom = distanceFromBottom < 40;
+    stickToBottom = distanceFromBottom(viewport) < BOTTOM_THRESHOLD_PX;
   }
 
-  function scrollToBottom() {
+  function pinToBottom() {
     if (!viewport) {
       return;
     }
-    // Double rAF: content-visibility means heights settle a frame late, so
-    // scrolling immediately would land short of the true bottom.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (viewport) {
-          viewport.scrollTop = viewport.scrollHeight;
-        }
-      });
-    });
+    viewport.scrollTop = viewport.scrollHeight;
   }
 
-  // Jump to the newest output the moment the console is shown, even when no
-  // new line arrives after navigation.
-  onMount(scrollToBottom);
+  /** Explicit "jump to latest": resumes following as well as scrolling. */
+  function jumpToBottom() {
+    stickToBottom = true;
+    pinToBottom();
+  }
+
+  onMount(() => {
+    if (!content || !viewport) {
+      return;
+    }
+    // Height-driven rather than line-count-driven. `content-visibility: auto`
+    // means a line's real height isn't known until it's near the viewport, so
+    // the buffer keeps growing for several frames after the lines exist —
+    // scrolling once on mount (even after a rAF or two) lands short of the
+    // true bottom on a full 5000-line buffer. Re-pinning on every height
+    // change follows it down however long it takes to settle. The viewport is
+    // watched as well as the content, so resizing the window — which reflows
+    // wrapped lines — keeps the newest output in view too.
+    const observer = new ResizeObserver(() => {
+      if (stickToBottom) {
+        pinToBottom();
+      }
+    });
+    observer.observe(content);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  });
 
   $effect(() => {
-    // Follow new output unless the user scrolled up to read history.
+    // Also follow on new output, because the observer alone isn't enough:
+    // once the buffer is at its cap, every appended line drops one off the
+    // front, so the content height is unchanged and no resize fires — while
+    // the text underneath has shifted up by a line. Without this the view
+    // silently drifts off the newest output on exactly the long-running
+    // servers where following matters most.
     void lines.length;
     if (stickToBottom) {
-      scrollToBottom();
+      pinToBottom();
     }
   });
 </script>
 
-<div
-  class="viewport"
-  bind:this={viewport}
-  onscroll={handleScroll}
-  oncontextmenu={openMenu}
-  role="log"
-  aria-label="Server console output"
->
-  {#if lines.length === 0}
-    <p class="empty"><Terminal size={16} /> Console output will appear here…</p>
-  {:else}
-    {#each lines as line, index (index)}
-      <div class="line {line.level}">
-        {#each line.spans as span, spanIndex (spanIndex)}
-          <span style:color={span.color ?? null} class:bold={span.bold}>{span.text}</span>
+<div class="console-view">
+  <div
+    class="viewport"
+    bind:this={viewport}
+    onscroll={handleScroll}
+    oncontextmenu={openMenu}
+    role="log"
+    aria-label="Server console output"
+  >
+    <div class="content" bind:this={content}>
+      {#if lines.length === 0}
+        <p class="empty"><Terminal size={16} /> Console output will appear here…</p>
+      {:else}
+        {#each lines as line, index (index)}
+          <div class="line {line.level}">
+            {#each line.spans as span, spanIndex (spanIndex)}
+              <span style:color={span.color ?? null} class:bold={span.bold}>{span.text}</span>
+            {/each}
+          </div>
         {/each}
-      </div>
-    {/each}
+      {/if}
+    </div>
+  </div>
+
+  {#if !stickToBottom}
+    <button class="jump" onclick={jumpToBottom} transition:fade={{ duration: 120 }}>
+      <ArrowDown size={15} /> Jump to latest
+    </button>
   {/if}
 </div>
 
 <style>
+  .console-view {
+    position: relative;
+    height: 100%;
+  }
+
   /* The console is always terminal-dark, in both app themes, so authentic
      Minecraft/ANSI colors stay readable. */
   .viewport {
@@ -121,6 +166,11 @@
     border-radius: var(--radius-md);
     box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.5);
     padding: 0.6rem 0;
+  }
+
+  /* The scroll-height source the ResizeObserver watches. */
+  .content {
+    display: flow-root;
   }
 
   .line {
@@ -148,6 +198,32 @@
 
   .bold {
     font-weight: 700;
+  }
+
+  /* Floats over the output, clear of the horizontal centre so it never sits
+     on top of the newest line the user is trying to read. */
+  .jump {
+    position: absolute;
+    right: 0.9rem;
+    bottom: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-soft);
+    padding: 0.4rem 0.7rem;
+    cursor: pointer;
+  }
+
+  .jump:hover {
+    border-color: var(--accent);
+    color: var(--accent-strong);
   }
 
   .empty {

@@ -12,6 +12,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
+use crate::addons::cache::MarketplaceCache;
 use crate::error::AppResult;
 use crate::players::roster::RosterStore;
 use crate::process::RunningMap;
@@ -47,6 +48,9 @@ pub struct AppState {
     /// the server's internal port — see `portforward::open`), and skip a
     /// pointless UPnP round-trip for servers that were never forwarded.
     pub forwarded: Mutex<HashMap<String, u16>>,
+    /// Recent marketplace responses, so browsing and update checks don't ask
+    /// Modrinth the same question twice inside a few minutes.
+    pub marketplace_cache: MarketplaceCache,
 }
 
 impl AppState {
@@ -88,6 +92,7 @@ impl AppState {
             java_download_lock: Mutex::new(()),
             rosters: RosterStore::new(Arc::clone(&db)),
             forwarded: Mutex::new(HashMap::new()),
+            marketplace_cache: MarketplaceCache::new(),
             db,
             data_dir,
         };
@@ -156,7 +161,7 @@ fn build_http_client() -> AppResult<reqwest::Client> {
         .user_agent(concat!(
             "ServerForge/",
             env!("CARGO_PKG_VERSION"),
-            " (github.com/Squ1ggly/mc-server-manager)"
+            " (github.com/voidhamsterofficial/mc-server-manager)"
         ))
         // Without these, a hung CDN or half-open socket blocks the awaiting
         // task forever (version lists spin, downloads never fail). read_timeout

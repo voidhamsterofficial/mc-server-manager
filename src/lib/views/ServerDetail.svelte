@@ -64,17 +64,28 @@
     }),
   );
 
-  let activeTab = $state<TabId>("dashboard");
+  /** The tab the user last clicked, which the server being viewed may not
+   *  actually have — see `activeTab`. */
+  let selectedTab = $state<TabId>("dashboard");
   let busy = $state(false);
   let confirmingDelete = $state(false);
 
-  $effect(() => {
-    // If the visible tabs change (switching servers) and the active one is
-    // gone, fall back to the dashboard.
-    if (!tabs.some((tab) => tab.id === activeTab)) {
-      activeTab = "dashboard";
+  /** Falls back to the dashboard when this server has no such tab. */
+  function resolveActiveTab(selected: TabId, available: typeof tabs): TabId {
+    const isAvailable = available.some((tab) => tab.id === selected);
+    if (!isAvailable) {
+      return "dashboard";
     }
-  });
+    return selected;
+  }
+
+  // Derived, not corrected afterwards in an $effect. An effect runs *after*
+  // the DOM updates, so switching from a Paper server to a Forge one while on
+  // Plugins would render PluginsTab once against the Forge server — long
+  // enough for it to fire off a plugin search and toast "this server type
+  // does not support plugins" before the effect switched tabs. Resolving it
+  // during render means the wrong tab is never mounted at all.
+  const activeTab = $derived(resolveActiveTab(selectedTab, tabs));
 
   const status = $derived(serversStore.statusOf(server.id));
   const canStart = $derived(status === "stopped" || status === "crashed");
@@ -159,7 +170,7 @@
       <button
         class="tab"
         class:active={activeTab === tab.id}
-        onclick={() => (activeTab = tab.id)}
+        onclick={() => (selectedTab = tab.id)}
       >
         <tab.icon size={16} color={FEATURE_COLOR[tab.id]} />
         {tab.label}

@@ -9,10 +9,16 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use crate::addons::cache::{self, MarketplaceCache};
 use crate::addons::{self, InstalledAddon};
 use crate::error::{AppError, AppResult};
 use crate::installers::{download_file, ExpectedChecksum, ProgressCallback};
 use crate::storage::db::PluginInstallRecord;
+
+/// How many results one browse returns. Deliberately a single page: the
+/// browser has no pagination and no infinite scroll, so this is the whole
+/// list the user sees, and it keeps a search to exactly one API request.
+pub const SEARCH_RESULT_LIMIT: usize = 20;
 
 /// Which marketplace an addon was found on or installed from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -140,11 +146,12 @@ pub mod modrinth {
         }
         let facets = format!("[{}]", facet_groups.join(","));
 
+        let limit = SEARCH_RESULT_LIMIT.to_string();
         let response: SearchResponse = client
             .get(format!("{MODRINTH_API}/search"))
             .query(&[
                 ("query", query),
-                ("limit", "30"),
+                ("limit", &limit),
                 ("index", "relevance"),
                 ("facets", &facets),
             ])
@@ -317,7 +324,7 @@ pub mod spigot {
             ))
             .query(&[
                 ("field", "name"),
-                ("size", "30"),
+                ("size", &SEARCH_RESULT_LIMIT.to_string()),
                 ("sort", "-downloads"),
                 ("fields", "id,name,tag,downloads,premium,external"),
             ])
@@ -529,7 +536,7 @@ pub mod curseforge {
             ("searchFilter", query.to_string()),
             ("sortField", "2".to_string()),
             ("sortOrder", "desc".to_string()),
-            ("pageSize", "30".to_string()),
+            ("pageSize", SEARCH_RESULT_LIMIT.to_string()),
         ];
         if !mc_version.is_empty() {
             query_params.push(("gameVersion", mc_version.to_string()));
@@ -679,8 +686,35 @@ pub struct MarketplaceContext<'a> {
 }
 
 /// Searches whichever marketplace `ctx.source` points to for `project_type`
-/// ("plugin" or "mod") projects.
+/// ("plugin" or "mod") projects, returning at most [`SEARCH_RESULT_LIMIT`]
+/// results. Repeats within the cache's TTL are served from memory.
 pub async fn search(
+    client: &reqwest::Client,
+    cache: &MarketplaceCache,
+    ctx: MarketplaceContext<'_>,
+    query: &str,
+    project_type: &str,
+) -> AppResult<Vec<AddonSearchResult>> {
+    let key = cache::search_key(
+        ctx.source.as_db_str(),
+        project_type,
+        ctx.loader_facet,
+        ctx.mc_version,
+        query,
+    );
+    if let Some(cached) = cache.search(&key).await {
+        return Ok(cached);
+    }
+
+    let mut results = search_marketplace(client, ctx, query, project_type).await?;
+    // Not every marketplace honours its own limit parameter, so the cap is
+    // enforced here too rather than trusted.
+    results.truncate(SEARCH_RESULT_LIMIT);
+    cache.store_search(key, results.clone()).await;
+    Ok(results)
+}
+
+async fn search_marketplace(
     client: &reqwest::Client,
     ctx: MarketplaceContext<'_>,
     query: &str,
@@ -714,6 +748,27 @@ pub async fn search(
 /// The newest version available for a project on whichever marketplace
 /// `ctx.source` points to, without downloading it.
 pub async fn latest_version(
+    client: &reqwest::Client,
+    cache: &MarketplaceCache,
+    ctx: MarketplaceContext<'_>,
+    project_id: &str,
+) -> AppResult<AddonVersion> {
+    let key = cache::version_key(
+        ctx.source.as_db_str(),
+        ctx.loader_facet,
+        ctx.mc_version,
+        project_id,
+    );
+    if let Some(cached) = cache.latest_version(&key).await {
+        return Ok(cached);
+    }
+
+    let version = fetch_latest_version(client, ctx, project_id).await?;
+    cache.store_latest_version(key, version.clone()).await;
+    Ok(version)
+}
+
+async fn fetch_latest_version(
     client: &reqwest::Client,
     ctx: MarketplaceContext<'_>,
     project_id: &str,
@@ -796,6 +851,7 @@ pub struct AddonUpdateStatus {
 /// skipped — there's no provenance to check them against.
 pub async fn check_for_updates(
     client: &reqwest::Client,
+    cache: &MarketplaceCache,
     installed: &[InstalledAddon],
     records: &[PluginInstallRecord],
     curseforge_api_key: Option<&str>,
@@ -823,7 +879,7 @@ pub async fn check_for_updates(
             mc_version,
             curseforge_api_key,
         };
-        let latest = latest_version(client, ctx, project_id).await.ok();
+        let latest = latest_version(client, cache, ctx, project_id).await.ok();
 
         let has_update = match (&latest, &record.version_id) {
             (Some(latest), Some(current_version_id)) => &latest.version_id != current_version_id,

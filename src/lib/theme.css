@@ -284,6 +284,13 @@ input[type="number"] {
   background: transparent;
 }
 
+/* Where a horizontal and a vertical scrollbar meet. Left unstyled it paints
+   the browser default — a white square, which is glaring against the
+   always-dark file editor and console. */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 ::-webkit-scrollbar-thumb {
   background: var(--lavender-soft);
   border-radius: var(--radius-sm);

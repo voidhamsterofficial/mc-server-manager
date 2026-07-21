@@ -960,6 +960,37 @@ pub async fn write_server_file(
     files::write_text(&state.server_dir(&config), &rel_path, &contents)
 }
 
+/// Copies a file dropped onto the file browser into the folder currently
+/// being viewed. Returns the name it landed under.
+#[tauri::command]
+pub async fn import_server_file(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    rel_dir: String,
+    source_path: String,
+) -> AppResult<String> {
+    let config = service::find_config(&app, &server_id).await?;
+    files::import_file(
+        &state.server_dir(&config),
+        &rel_dir,
+        std::path::Path::new(&source_path),
+    )
+}
+
+/// The command this server would launch with by default (ignoring any custom
+/// start command), shown in Settings so the override has something concrete
+/// to start from.
+#[tauri::command]
+pub async fn preview_start_command(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+) -> AppResult<String> {
+    let config = service::find_config(&app, &server_id).await?;
+    process::preview_default_command(&config, &state.server_dir(&config))
+}
+
 #[tauri::command]
 pub async fn delete_server_file(
     app: AppHandle,
@@ -1060,7 +1091,27 @@ pub async fn set_plugin_enabled(
     enabled: bool,
 ) -> AppResult<String> {
     let config = service::find_config(&app, &server_id).await?;
-    plugins::set_enabled(&state.server_dir(&config), &file_name, enabled)
+    let new_file_name = plugins::set_enabled(&state.server_dir(&config), &file_name, enabled)?;
+
+    // The jar was renamed, so its install record has to follow it or the
+    // addon loses the provenance update checks rely on.
+    let db = state.db.lock().await;
+    db.rename_plugin_install(&server_id, &file_name, &new_file_name)?;
+    Ok(new_file_name)
+}
+
+/// Installs a `.jar` dragged onto the Plugins tab from the user's file
+/// manager. Hand-dropped jars get no install record, so they're listed and
+/// toggleable but sit out of update checks.
+#[tauri::command]
+pub async fn import_plugin_jar(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    server_id: String,
+    source_path: String,
+) -> AppResult<plugins::InstalledPlugin> {
+    let config = service::find_config(&app, &server_id).await?;
+    plugins::import_jar(&state.server_dir(&config), Path::new(&source_path))
 }
 
 #[tauri::command]
@@ -1091,7 +1142,7 @@ pub async fn search_plugins(
         mc_version: plugin_mc_version(&config),
         curseforge_api_key: None,
     };
-    plugins::search(&state.http, ctx, &query).await
+    plugins::search(&state.http, &state.marketplace_cache, ctx, &query).await
 }
 
 #[tauri::command]
@@ -1138,7 +1189,7 @@ pub async fn check_plugin_updates(
         let db = state.db.lock().await;
         db.list_plugin_installs(&server_id)?
     };
-    plugins::check_for_updates(&state.http, &server_dir, &records).await
+    plugins::check_for_updates(&state.http, &state.marketplace_cache, &server_dir, &records).await
 }
 
 #[tauri::command]
@@ -1214,7 +1265,13 @@ pub async fn set_mod_enabled(
     enabled: bool,
 ) -> AppResult<String> {
     let config = service::find_config(&app, &server_id).await?;
-    mods::set_enabled(&state.server_dir(&config), &file_name, enabled)
+    let new_file_name = mods::set_enabled(&state.server_dir(&config), &file_name, enabled)?;
+
+    // The jar was renamed, so its install record has to follow it or the
+    // addon loses the provenance update checks rely on.
+    let db = state.db.lock().await;
+    db.rename_plugin_install(&server_id, &file_name, &new_file_name)?;
+    Ok(new_file_name)
 }
 
 #[tauri::command]
@@ -1246,7 +1303,7 @@ pub async fn search_mods(
         mc_version: &config.mc_version,
         curseforge_api_key: api_key.as_deref(),
     };
-    mods::search(&state.http, ctx, &query).await
+    mods::search(&state.http, &state.marketplace_cache, ctx, &query).await
 }
 
 #[tauri::command]
@@ -1295,7 +1352,14 @@ pub async fn check_mod_updates(
         let db = state.db.lock().await;
         db.list_plugin_installs(&server_id)?
     };
-    mods::check_for_updates(&state.http, &server_dir, &records, api_key.as_deref()).await
+    mods::check_for_updates(
+        &state.http,
+        &state.marketplace_cache,
+        &server_dir,
+        &records,
+        api_key.as_deref(),
+    )
+    .await
 }
 
 #[tauri::command]

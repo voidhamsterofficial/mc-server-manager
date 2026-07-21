@@ -57,20 +57,20 @@ Built with **Rust** (Tauri v2 backend) and **Svelte 5** (TypeScript UI).
 
 #### 🎮 **Full Control**
 - Start, stop, force-kill with graceful shutdown
-- Live console with colors, 5000-line buffer, quick-command menu
+- Live console with colors, 5000-line buffer, quick commands & command autocomplete
 - Player list, history, playtime tracking, kick/ban/op
-- Whitelist & server.properties editor
+- Whitelist & server.properties editor, plus a file browser with syntax highlighting
 
 </td>
 </tr>
 <tr>
 <td width="50%">
 
-#### 🧩 **Plugin Ready**
-- Browse & install plugins from **Modrinth** in one click
-- Filtered by server software & MC version
-- Enable, disable, remove—no restart needed for most
-- Supports Paper, Purpur, Spigot, Folia, Fabric, Quilt + more
+#### 🧩 **Plugins & Mods**
+- Browse & install from **Modrinth** in one click, or drag a `.jar` straight in
+- Filtered by server software & MC version, checksum-verified
+- Enable, disable, remove, and one-click update
+- Plugins on the Paper family, hybrids & proxies; mods on Fabric/Forge/Quilt/NeoForge (CurseForge too, with your API key)
 
 </td>
 <td width="50%">
@@ -86,7 +86,7 @@ Built with **Rust** (Tauri v2 backend) and **Svelte 5** (TypeScript UI).
 </tr>
 </table>
 
-**Supports 16 server types:** Vanilla, Paper, Purpur, Folia, Spigot (BuildTools), Fabric, Quilt, Forge, NeoForge, Mohist, Arclight, Bedrock, Velocity, BungeeCord, and more.
+**Supports 14 server types:** Vanilla, Paper, Purpur, Spigot (BuildTools), Folia, Fabric, Quilt, Forge, NeoForge, Mohist, Arclight, Bedrock, Velocity, and BungeeCord.
 
 **Minecraft-flavoured UI:** Blocky buttons, pixel font, game-accurate colors, dark mode, respects `prefers-reduced-motion`. It feels like Minecraft. 🧱
 
@@ -131,14 +131,13 @@ cargo tauri build
 ```
 Installers land in `src-tauri/target/release/bundle/` (Windows `.exe`, macOS `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
 
-**Code quality checks:**
+**Code quality checks** — all must pass:
 ```sh
-just check
+cd src-tauri && cargo clippy --all-targets && cargo fmt --check && cargo test
+npm run check && npm run test:run && npm run build
 ```
 
-Also available: `just lint`, `just fmt-check`, `just test`, `just fmt`, `just quick-check`. [Full recipe list](justfile).
-
-All must pass. See [AGENTS.md](AGENTS.md) for coding standards.
+See [AGENTS.md](AGENTS.md) for coding standards.
 
 ## 🗂️ Architecture
 
@@ -146,29 +145,29 @@ All must pass. See [AGENTS.md](AGENTS.md) for coding standards.
 src/                       Frontend (Svelte 5 + TypeScript)
 ├── App.svelte            Main shell, routing, event listeners
 ├── lib/
-│   ├── views/            Dashboard, ServerDetail, AppSettings, Docs
-│   ├── components/       Button, ContextMenu, Toasts, dialogs
+│   ├── views/            Dashboard, ServerDetail, AppSettings, Docs, tabs/
+│   ├── components/       Button, ContextMenu, ConsoleView, Toasts, dialogs
 │   ├── stores/           Reactive state (servers, stats, toasts, etc.)
-│   ├── api.ts            Tauri command wrapper
-│   ├── events.ts         Event listeners (backend → UI)
+│   ├── ipc/              api.ts (command wrappers), events.ts (backend → UI)
+│   ├── util/             Formatting, highlighting, command autocomplete + data
 │   └── theme.css         Minecraft-inspired colors & typography
 └── assets/               Fonts, icons
 
 src-tauri/src/            Backend (Rust + Tauri)
 ├── main.rs               Entry point
-├── lib.rs                Tauri app setup
+├── lib.rs                Tauri app setup & command registration
 ├── commands.rs           RPC handlers
-├── servers.rs            Server registry & YAML persistence
-├── process.rs            Java child processes, console streaming
-├── console.rs            Log parsing (ready, join/leave, etc.)
-├── installers/           14 server type installers
+├── error.rs              AppError / AppResult
+├── events.rs             Events emitted to the UI
+├── platform.rs           OS-specific process details
+├── portforward.rs        UPnP mapping & CGNAT detection
+├── servers/              Registry, YAML persistence, scheduler, app state
+├── process/              Java child processes, console parsing, stats sampling
+├── installers/           11 server-software installers
+├── addons/               Plugins, mods, marketplaces (Modrinth/CurseForge), cache
 ├── java/                 JVM detection, auto-download Temurin
-├── plugins.rs            Modrinth plugin manager
-├── roster.rs             Player history & moderation
-├── backups.rs            Zip backups & restore
-├── files.rs              Scoped file browser
-├── scheduler.rs          Cron-style task scheduler
-└── [stats, portforward, properties, playerdata, etc.]
+├── players/              Roster, history, playerdata
+└── storage/              SQLite db, backups, scoped file browser, properties
 
 Config & Tooling
 ├── Cargo.toml            Rust dependencies & metadata
@@ -178,13 +177,13 @@ Config & Tooling
 └── svelte.config.js      Svelte config
 ```
 
+
 **Data Storage:**
 - **Server configs:** `blockparty-server.yaml` per server folder (human-readable, editable)
-- **Global settings:** `blockparty.yaml` beside the app binary
+- **App data:** `blockparty.db` (SQLite) in the per-user app-data directory — known servers, settings, player history, scheduled tasks, addon install records
 - **Java runtimes:** Per-user app-data directory (auto-downloaded)
-- **Player history:** Stored server-side, queried on demand
-- **Backups:** Versioned `.zip` files with retention policies
-- **No registry:** Everything is portable—move the folder, it just works.
+- **Backups:** Timestamped `.zip` files with per-server retention policies
+- **No registry:** every server folder carries its own config.
 
 ## 🤝 Contributing
 
@@ -192,8 +191,8 @@ We love contributions! Whether it's bug fixes, features, installers, or docs, al
 
 **Before you start:**
 - Read [AGENTS.md](AGENTS.md) — our coding standards (DRY, flat code, proper error handling, no panics)
-- Ensure `cargo clippy`, `cargo fmt`, `cargo test`, `npm run check`, and `npm run build` all pass
-- Coding standards are not optional—enforced by CI
+- Ensure `cargo clippy`, `cargo fmt --check`, `cargo test`, `npm run check`, `npm run test:run` and `npm run build` all pass
+- Coding standards are not optional
 
 **Your first PR?**
 1. Fork the repo
@@ -215,18 +214,14 @@ We love contributions! Whether it's bug fixes, features, installers, or docs, al
 |------|---------|
 | Run dev app | `cargo tauri dev` |
 | Build for release | `cargo tauri build` |
-| Check all quality | `just check` |
-| Format code | `just fmt` |
-| Lint | `just lint` |
-| Run tests | `just test` |
-| Check types | `just check-types` |
-| Quick checks | `just quick-check` |
+| Lint Rust | `cd src-tauri && cargo clippy --all-targets` |
+| Format Rust | `cd src-tauri && cargo fmt` |
+| Test Rust | `cd src-tauri && cargo test` |
+| Check types | `npm run check` |
+| Test frontend | `npm run test:run` |
+| Build frontend | `npm run build` |
 
-**Code quality checks must pass before submitting a PR:**
-```sh
-cd src-tauri && cargo clippy && cargo fmt --check && cargo test
-npm run check && npm run build
-```
+**All of these must pass before submitting a PR.**
 
 ## 📚 Resources
 

@@ -5,7 +5,7 @@
   import { statsStore } from "../../stores/stats.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
   import { portForwardStore } from "../../stores/portForward.svelte";
-  import { formatBytes, formatDateTime, formatUptime } from "../../util/format";
+  import { formatMemory, formatDateTime, formatUptime } from "../../util/format";
   import { STATUS_META } from "../../util/status";
   import StatTile from "../../components/StatTile.svelte";
   import Sparkline from "../../components/Sparkline.svelte";
@@ -123,7 +123,7 @@
   const memoryScaleMax = $derived(server.memoryMb * BYTES_PER_MB * 1.5);
 
   const cpuText = $derived(isLive ? `${stats.latest!.cpuPercent.toFixed(1)} %` : "—");
-  const memoryText = $derived(isLive ? formatBytes(stats.latest!.memoryBytes) : "—");
+  const memoryText = $derived(isLive ? formatMemory(stats.latest!.memoryBytes) : "—");
   const uptimeText = $derived(isLive ? formatUptime(stats.latest!.uptimeSeconds) : "—");
   const createdText = $derived(formatDateTime(server.createdAtUnix));
 </script>

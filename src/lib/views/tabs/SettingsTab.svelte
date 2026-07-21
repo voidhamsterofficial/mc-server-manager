@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
-  import { Server, Wrench, Gift, Image, MessageSquare, NotebookText } from "@lucide/svelte";
+  import { Server, Wrench, Gift, Image, MessageSquare, NotebookText, Copy } from "@lucide/svelte";
   import {
     api,
     resolveBackupsDir,
@@ -78,6 +78,10 @@
   // every serversStore.refresh(), which hands us a fresh object with the same
   // id after a save. Re-seeding on each refresh would reset the fields, reload
   // properties, and jerk the scroll position out from under the user.
+  /** The command ServerForge would build for this server, shown so the custom
+   *  override has something concrete to copy and edit. */
+  let defaultStartCommand = $state<string | null>(null);
+
   let seededForId: string | null = null;
   $effect(() => {
     const id = server.id;
@@ -95,6 +99,7 @@
       editedRetention = server.backupRetention === null ? "" : String(server.backupRetention);
       loadProperties(id);
       loadIcon(id);
+      loadDefaultStartCommand(id);
     });
   });
 
@@ -149,6 +154,30 @@
       if (typeof picked === "string") {
         editedBackupsDir = picked;
       }
+    } catch (error) {
+      toastsStore.error(String(error));
+    }
+  }
+
+  /** Asks the backend what it would actually run, rather than describing it
+   *  here — a second description in the UI would drift from the real one. */
+  async function loadDefaultStartCommand(serverId: string) {
+    defaultStartCommand = null;
+    try {
+      defaultStartCommand = await api.previewStartCommand(serverId);
+    } catch {
+      // Only a reference display; a server whose jar isn't installed yet
+      // simply doesn't get one.
+    }
+  }
+
+  async function copyDefaultStartCommand() {
+    if (defaultStartCommand === null) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(defaultStartCommand);
+      toastsStore.success("Copied the default start command");
     } catch (error) {
       toastsStore.error(String(error));
     }
@@ -292,6 +321,17 @@
               spellcheck="false"
             />
           </label>
+          {#if defaultStartCommand !== null}
+            <div class="default-command">
+              <span class="default-command-label">
+                Default (used when the box above is empty):
+              </span>
+              <code>{defaultStartCommand}</code>
+              <Button variant="ghost" onclick={copyDefaultStartCommand}>
+                <Copy size={14} /> Copy
+              </Button>
+            </div>
+          {/if}
         </div>
       {/if}
     </div>
@@ -448,6 +488,33 @@
     border-radius: var(--radius-sm);
     image-rendering: pixelated;
     box-shadow: 0 0 0 2px rgba(15, 15, 18, 0.35);
+  }
+
+  .default-command {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: -0.2rem;
+  }
+
+  .default-command-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .default-command code {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.35rem 0.5rem;
   }
 
   .icon-placeholder {

@@ -482,7 +482,15 @@ fn build_launch_command(
     if let Some(custom_command) = &config.start_command {
         return parse_custom_command(custom_command);
     }
+    build_default_launch_command(config, server_dir, java_executable)
+}
 
+/// The command ServerForge builds itself, before any custom override.
+fn build_default_launch_command(
+    config: &ServerConfig,
+    server_dir: &Path,
+    java_executable: &Path,
+) -> AppResult<Command> {
     if config.loader == Loader::Bds {
         let binary_name = if cfg!(windows) {
             "bedrock_server.exe"
@@ -584,6 +592,40 @@ fn find_jar_with_prefix(server_dir: &Path, prefix: &str) -> Option<String> {
         }
     }
     None
+}
+
+/// The command this server would be started with if no custom start command
+/// were set, rendered for display in Settings. Builds the real thing rather
+/// than describing it, so it can't drift from what actually runs.
+///
+/// The one part that is a best guess is the Java executable: resolving it for
+/// real can trigger a download, so a server with no pinned `java_path` shows
+/// the bare `java` it would be found on PATH as.
+pub fn preview_default_command(config: &ServerConfig, server_dir: &Path) -> AppResult<String> {
+    let java_executable = match &config.java_path {
+        Some(path) => path.clone(),
+        None => std::path::PathBuf::from("java"),
+    };
+    let command = build_default_launch_command(config, server_dir, &java_executable)?;
+    Ok(render_command(&command))
+}
+
+/// Renders a command the way a shell would show it, quoting only the parts
+/// that need it.
+fn render_command(command: &Command) -> String {
+    let standard = command.as_std();
+    let mut parts = vec![quote_if_needed(&standard.get_program().to_string_lossy())];
+    for argument in standard.get_args() {
+        parts.push(quote_if_needed(&argument.to_string_lossy()));
+    }
+    parts.join(" ")
+}
+
+fn quote_if_needed(part: &str) -> String {
+    if !part.contains(' ') {
+        return part.to_string();
+    }
+    format!("\"{part}\"")
 }
 
 /// Splits a custom start command on whitespace (no quoting support yet).
