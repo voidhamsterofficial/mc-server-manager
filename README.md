@@ -10,7 +10,7 @@
 ![Svelte](https://img.shields.io/badge/svelte-%23f1413d.svg?style=for-the-badge&logo=svelte&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
 
-**Cross-platform** • **Open source** • **Free** • **Zero registry cruft**
+**Cross-platform** • **Open source** • **Free**
 
 [⬇️ Download](#-download) • [🚀 Quick Start](#-quick-start) • [🧑‍💻 Contribute](#-contributing) • [📖 Docs](https://github.com/voidhamsterofficial/mc-server-manager/wiki)
 
