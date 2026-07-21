@@ -222,7 +222,11 @@ We love contributions! Whether it's bug fixes, features, installers, or docs, al
 | Check types | `just check-types` |
 | Quick checks | `just quick-check` |
 
-Install `just`: `cargo install just`. [See all recipes →](justfile)
+**Code quality checks must pass before submitting a PR:**
+```sh
+cd src-tauri && cargo clippy && cargo fmt --check && cargo test
+npm run check && npm run build
+```
 
 ## 📚 Resources
 
