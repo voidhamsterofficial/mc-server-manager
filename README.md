@@ -113,9 +113,10 @@ Installers land in `src-tauri/target/release/bundle/` (Windows `.exe`, macOS `.d
 
 **Code quality checks:**
 ```sh
-cd src-tauri && cargo clippy && cargo fmt --check && cargo test
-npm run check && npm run build
+just check
 ```
+
+Also available: `just lint`, `just fmt-check`, `just test`, `just fmt`, `just quick-check`. [Full recipe list](justfile).
 
 All must pass. See [AGENTS.md](AGENTS.md) for coding standards.
 
@@ -194,12 +195,14 @@ We love contributions! Whether it's bug fixes, features, installers, or docs, al
 |------|---------|
 | Run dev app | `cargo tauri dev` |
 | Build for release | `cargo tauri build` |
-| Format code | `cargo fmt` && `npm run build` |
-| Lint | `cargo clippy` |
-| Run tests | `cargo test` (in `src-tauri/`) |
-| Check types | `npm run check` |
+| Check all quality | `just check` |
+| Format code | `just fmt` |
+| Lint | `just lint` |
+| Run tests | `just test` |
+| Check types | `just check-types` |
+| Quick checks | `just quick-check` |
 
-All checks must pass before submitting a PR. The CI will catch anything that slips through. 🤖
+Install `just`: `cargo install just`. [See all recipes →](justfile)
 
 ## 📚 Resources
 
