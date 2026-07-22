@@ -70,7 +70,28 @@ export function onStats(handler: (event: StatsEvent) => void): Promise<UnlistenF
   return listen<StatsEvent>("server:stats", (event) => handler(event.payload));
 }
 
+export interface BackupProgressEvent {
+  serverId: string;
+  processedFiles: number;
+  totalFiles: number;
+}
+
 /** Fires with the server id when a backup finishes. */
 export function onBackupCreated(handler: (serverId: string) => void): Promise<UnlistenFn> {
   return listen<string>("server:backup-created", (event) => handler(event.payload));
+}
+
+/** Fires repeatedly while a backup is being zipped. */
+export function onBackupProgress(
+  handler: (event: BackupProgressEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<BackupProgressEvent>("server:backup-progress", (event) =>
+    handler(event.payload),
+  );
+}
+
+/** Fires with the server id when a backup gives up, so the UI can stop
+ *  showing it as in progress. */
+export function onBackupFailed(handler: (serverId: string) => void): Promise<UnlistenFn> {
+  return listen<string>("server:backup-failed", (event) => handler(event.payload));
 }

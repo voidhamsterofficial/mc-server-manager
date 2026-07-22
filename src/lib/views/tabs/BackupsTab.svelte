@@ -1,14 +1,16 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { fade } from "svelte/transition";
   import { Folder, Gift, Archive, Undo2, Trash2 } from "@lucide/svelte";
+  import { createIntroFade } from "../../util/transitions";
   import { api, resolveBackupsDir, type BackupInfo, type ServerConfig } from "../../ipc/api";
   import { onBackupCreated } from "../../ipc/events";
+  import { backupsStore } from "../../stores/backups.svelte";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
   import { formatFileSize, formatDateTime } from "../../util/format";
   import { FEATURE_COLOR } from "../../util/features";
   import Button from "../../components/Button.svelte";
+  import ProgressBar from "../../components/ProgressBar.svelte";
 
   interface Props {
     server: ServerConfig;
@@ -16,14 +18,36 @@
 
   let { server }: Props = $props();
 
+  const introFade = createIntroFade();
+
   let backups = $state<BackupInfo[]>([]);
+  // The empty state is held back until the first listing lands, so opening the
+  // tab doesn't flash "No backups yet" before the real list arrives.
+  let hasListed = $state(false);
   let working = $state(false);
   let confirming = $state<{ action: "restore" | "delete"; fileName: string } | null>(null);
 
   const status = $derived(serversStore.statusOf(server.id));
   const isStopped = $derived(status === "stopped" || status === "crashed");
 
+  // From the store, so leaving the tab and coming back mid-backup still shows
+  // the bar — and still refuses to restore over a backup that is in flight.
+  const isBackingUp = $derived(backupsStore.isBackingUp(server.id));
+  const backupFraction = $derived(backupsStore.fractionOf(server.id));
+  const isBusy = $derived(working || isBackingUp);
+
+  // Re-list only when the folder we're showing actually changes — either a
+  // different server, or the same one after its backups location was edited
+  // in the Settings tab. serversStore.refresh() hands us a fresh object with
+  // the same values, and without this guard that re-listed on every refresh,
+  // racing the tab's own in-flight requests.
+  let listedDir: string | null = null;
   $effect(() => {
+    const dir = resolveBackupsDir(server);
+    if (dir === listedDir) {
+      return;
+    }
+    listedDir = dir;
     loadBackups(server.id);
   });
 
@@ -40,24 +64,44 @@
     };
   });
 
+  // Creating a backup and the backup-created event can both trigger a load,
+  // so more than one can be in flight at once. Only the newest may write to
+  // the list — otherwise a listing taken before the backup finished can
+  // resolve last and overwrite the one that contains it, which left the new
+  // backup invisible until the tab was remounted.
+  let latestLoadId = 0;
+
   async function loadBackups(serverId: string) {
+    const loadId = ++latestLoadId;
     try {
-      backups = await api.listBackups(serverId);
+      const listed = await api.listBackups(serverId);
+      if (loadId !== latestLoadId) {
+        return;
+      }
+      // Assigning the whole array is safe for the flash the keyed `{#each}`
+      // would otherwise cause: rows are keyed by file name, so unchanged
+      // backups keep their DOM nodes and only genuinely new ones transition.
+      backups = listed;
+      hasListed = true;
     } catch (error) {
+      if (loadId !== latestLoadId) {
+        return;
+      }
       toastsStore.error(String(error));
     }
   }
 
   async function createBackup() {
-    working = true;
+    // Marked before the call so the bar shows straight away; the store is
+    // cleared by the created/failed events, which arrive app-wide whether or
+    // not this tab is still mounted.
+    backupsStore.start(server.id);
     try {
       const created = await api.createBackup(server.id);
       toastsStore.success(`Backup tucked away safely (${formatFileSize(created.sizeBytes)})`);
       await loadBackups(server.id);
     } catch (error) {
       toastsStore.error(String(error));
-    } finally {
-      working = false;
     }
   }
 
@@ -97,8 +141,8 @@
         <Folder size={13} /> {resolveBackupsDir(server)}
       </code>
     </div>
-    <Button disabled={working} onclick={createBackup}>
-      {#if working}
+    <Button disabled={isBusy} onclick={createBackup}>
+      {#if isBusy}
         Working…
       {:else}
         <Gift size={15} /> Back up now
@@ -106,15 +150,30 @@
     </Button>
   </div>
 
-  {#if backups.length === 0}
-    <div class="empty" in:fade={{ duration: 120 }}>
-      <span class="face"><Archive size={40} color={FEATURE_COLOR.backups} /></span>
-      <p>No backups yet — make your first one, future-you will be grateful!</p>
+  {#if isBackingUp}
+    <div class="progress">
+      <ProgressBar value={backupFraction} />
+      <span class="progress-label">
+        {#if backupFraction === null}
+          Gathering files…
+        {:else}
+          Zipping — {Math.round(backupFraction * 100)}%
+        {/if}
+      </span>
     </div>
+  {/if}
+
+  {#if backups.length === 0}
+    {#if hasListed}
+      <div class="empty" in:introFade>
+        <span class="face"><Archive size={40} color={FEATURE_COLOR.backups} /></span>
+        <p>No backups yet — make your first one, future-you will be grateful!</p>
+      </div>
+    {/if}
   {:else}
     <ul class="backup-list">
       {#each backups as backup (backup.fileName)}
-        <li in:fade={{ duration: 120 }}>
+        <li in:introFade>
           <span class="file">
             <span class="file-name">{backup.fileName}</span>
             <span class="file-meta">
@@ -123,7 +182,7 @@
           </span>
           {#if confirming?.fileName === backup.fileName}
             <span class="confirm">
-              <Button variant="danger" disabled={working} onclick={confirmAction}>
+              <Button variant="danger" disabled={isBusy} onclick={confirmAction}>
                 {confirming.action === "restore" ? "Really restore?" : "Really delete?"}
               </Button>
               <Button variant="ghost" onclick={() => (confirming = null)}>Cancel</Button>
@@ -132,7 +191,7 @@
             <span class="row-actions">
               <Button
                 variant="soft"
-                disabled={working || !isStopped}
+                disabled={isBusy || !isStopped}
                 title={isStopped
                   ? "Replace the server folder with this backup"
                   : "Stop the server to restore"}
@@ -142,7 +201,7 @@
               </Button>
               <Button
                 variant="ghost"
-                disabled={working}
+                disabled={isBusy}
                 onclick={() => (confirming = { action: "delete", fileName: backup.fileName })}
               >
                 <Trash2 size={14} />
@@ -194,6 +253,17 @@
   .hint {
     margin: 0;
     font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .progress {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .progress-label {
+    font-size: 0.8rem;
     color: var(--muted);
   }
 

@@ -1493,6 +1493,28 @@ pub async fn save_server_properties(
     properties::write(&server_dir, &updates)
 }
 
+/// Which running server, if any, already occupies this server's port. Lets the
+/// UI offer to change the port instead of starting a server that would only
+/// fail to bind.
+#[tauri::command]
+pub async fn port_conflict(
+    app: AppHandle,
+    server_id: String,
+) -> AppResult<Option<service::PortConflict>> {
+    service::find_port_conflict(&app, &server_id).await
+}
+
+/// Resolves a port clash the other way round: stop whoever holds the port,
+/// then start the server that wanted it.
+#[tauri::command]
+pub async fn stop_other_and_start(
+    app: AppHandle,
+    running_server_id: String,
+    server_id: String,
+) -> AppResult<()> {
+    service::stop_other_and_start(&app, &running_server_id, &server_id).await
+}
+
 #[tauri::command]
 pub async fn create_backup(app: AppHandle, server_id: String) -> AppResult<BackupInfo> {
     service::create_backup(&app, &server_id).await

@@ -33,12 +33,17 @@
   import { portForwardStore } from "./lib/stores/portForward.svelte";
   import StatusBlob from "./lib/components/StatusBlob.svelte";
   import AppMark from "./lib/components/AppMark.svelte";
+  import { backupsStore } from "./lib/stores/backups.svelte";
   import { serversStore } from "./lib/stores/servers.svelte";
   import { statsStore } from "./lib/stores/stats.svelte";
+  import { startServerWithPortCheck } from "./lib/util/startServer";
   import { toastsStore } from "./lib/stores/toasts.svelte";
   import { unsavedEditsStore } from "./lib/stores/unsavedEdits.svelte";
   import { formatFileSize } from "./lib/util/format";
   import {
+    onBackupCreated,
+    onBackupFailed,
+    onBackupProgress,
     onConsoleBatch,
     onInstallProgress,
     onPlayersChange,
@@ -177,7 +182,7 @@
 
   /** Deleting wipes the server folder, so always confirm first. */
   async function deleteServerFromMenu(server: ServerConfig) {
-    const confirmed = await confirmStore.ask({
+    const choice = await confirmStore.ask({
       title: `Delete "${server.name}"?`,
       body:
         "This permanently deletes the server's folder — world, configs, plugins and all — " +
@@ -185,7 +190,7 @@
       confirmLabel: "Delete forever",
       variant: "danger",
     });
-    if (!confirmed) {
+    if (choice !== "confirm") {
       return;
     }
 
@@ -221,7 +226,7 @@
         label: "Start",
         icon: Play,
         tone: "success",
-        action: () => runWithToast(() => api.startServer(server.id)),
+        action: () => runWithToast(() => startServerWithPortCheck(server)),
       });
     } else {
       entries.push(
@@ -315,6 +320,11 @@
       onPlayersChange((event) => serversStore.setPlayers(event.serverId, event.players)),
       onStats((event) => statsStore.record(event)),
       onInstallProgress(trackJavaDownload),
+      // Registered app-wide, not in the Backups tab: a backup outlives that
+      // tab being open, and its progress has to survive navigating away.
+      onBackupProgress((event) => backupsStore.record(event)),
+      onBackupCreated((serverId) => backupsStore.finish(serverId)),
+      onBackupFailed((serverId) => backupsStore.finish(serverId)),
       onStatusChange((event) => {
         const previousStatus = serversStore.statusOf(event.serverId);
         serversStore.setStatus(event.serverId, event.status);

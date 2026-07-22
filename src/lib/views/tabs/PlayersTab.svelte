@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fade } from "svelte/transition";
+  import { createIntroFade } from "../../util/transitions";
   import {
     CircleCheckBig,
     ShieldCheck,
@@ -26,6 +26,8 @@
   }
 
   let { server }: Props = $props();
+
+  const introFade = createIntroFade();
 
   let manualName = $state("");
   let historyOpen = $state(false);
@@ -160,14 +162,14 @@
   {/if}
 
   {#if canCommand && players.length === 0}
-    <div class="empty" in:fade={{ duration: 120 }}>
+    <div class="empty" in:introFade>
       <span class="face"><UserX size={40} color={FEATURE_COLOR.players} /></span>
       <p>No players online right now.</p>
     </div>
   {:else if canCommand}
     <ul class="player-list">
       {#each players as player (player)}
-        <li in:fade={{ duration: 120 }}>
+        <li in:introFade>
           <img
             src="https://mc-heads.net/avatar/{encodeURIComponent(player)}/40"
             alt=""
@@ -217,7 +219,7 @@
     </button>
 
     {#if historyOpen}
-      <div class="history-body" in:fade={{ duration: 120 }}>
+      <div class="history-body" in:introFade>
         <!-- History stays last: it's reference material, not a daily control. -->
         {#if roster.length === 0}
           <p class="history-empty">No one has visited this server yet.</p>

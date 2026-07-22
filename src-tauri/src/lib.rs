@@ -133,6 +133,8 @@ pub fn run() {
             commands::get_curseforge_api_key,
             commands::set_curseforge_api_key,
             commands::create_backup,
+            commands::port_conflict,
+            commands::stop_other_and_start,
             commands::list_backups,
             commands::restore_backup,
             commands::delete_backup,

@@ -24,3 +24,11 @@ pub const SERVER_CRASHED: &str = "server:crashed";
 
 /// A backup finished for a server (payload: the server id string).
 pub const BACKUP_CREATED: &str = "server:backup-created";
+
+/// Progress of an ongoing backup: [`crate::storage::backups::BackupProgressEvent`].
+pub const BACKUP_PROGRESS: &str = "server:backup-progress";
+
+/// A backup failed for a server (payload: the server id string). The UI needs
+/// this to clear its in-progress state — without it a failed backup would
+/// leave the progress bar stuck on screen forever.
+pub const BACKUP_FAILED: &str = "server:backup-failed";

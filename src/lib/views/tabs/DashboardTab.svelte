@@ -5,6 +5,7 @@
   import { statsStore } from "../../stores/stats.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
   import { portForwardStore } from "../../stores/portForward.svelte";
+  import { serverAddressStore } from "../../stores/serverAddress.svelte";
   import { formatMemory, formatDateTime, formatUptime } from "../../util/format";
   import { STATUS_META } from "../../util/status";
   import StatTile from "../../components/StatTile.svelte";
@@ -29,13 +30,25 @@
   // Bumped per load so a slow reply for a server we've navigated away from
   // can't overwrite the one on screen.
   let addressToken = 0;
+  /** Which server the shown address belongs to. */
+  let addressServerId: string | null = null;
 
   $effect(() => {
     const serverId = server.id;
+    // Depended on so the address refetches when the port is changed — from
+    // the Settings tab, or from the prompt shown when a start hits a port
+    // clash. Neither touches any other state this effect reads.
+    serverAddressStore.revisionOf(serverId);
+
     const token = ++addressToken;
-    // Clear first: each server has its own port, so holding the previous
-    // server's address while this one loads would show the wrong one.
-    address = null;
+    // Clear only when the server changed: holding the previous server's
+    // address while this one loads would show the wrong one. Re-reading the
+    // same server's address after a port change must not blank the field to
+    // "—" and back — it just updates in place when the new value lands.
+    if (serverId !== addressServerId) {
+      addressServerId = serverId;
+      address = null;
+    }
 
     api
       .getServerAddress(serverId)

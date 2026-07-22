@@ -22,6 +22,9 @@ pub enum AppError {
     #[error("server is already running")]
     ServerAlreadyRunning,
 
+    #[error("port {port} is already in use by the running server \"{other_server}\"")]
+    PortInUse { port: String, other_server: String },
+
     #[error("server is not running")]
     ServerNotRunning,
 

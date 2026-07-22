@@ -20,6 +20,7 @@
   import { api, supportsMods, supportsPlugins, type ServerConfig } from "../ipc/api";
   import { FEATURE_COLOR } from "../util/features";
   import { serversStore } from "../stores/servers.svelte";
+  import { startServerWithPortCheck } from "../util/startServer";
   import { toastsStore } from "../stores/toasts.svelte";
   import StatusBlob from "../components/StatusBlob.svelte";
   import Button from "../components/Button.svelte";
@@ -128,7 +129,7 @@
     </div>
     <div class="actions">
       {#if canStart}
-        <Button disabled={busy} onclick={() => run(() => api.startServer(server.id))}>
+        <Button disabled={busy} onclick={() => run(() => startServerWithPortCheck(server))}>
           <Play size={15} /> Start
         </Button>
       {/if}

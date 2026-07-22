@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
+  import { createIntroFade } from "../../util/transitions";
   import {
     FolderOpen,
     Pencil,
@@ -37,6 +38,8 @@
   }
 
   let { server }: Props = $props();
+
+  const introFade = createIntroFade();
 
   const TEXT_EXTENSIONS = [
     "txt", "properties", "yml", "yaml", "json", "json5", "toml", "conf", "cfg",
@@ -406,7 +409,7 @@
            entries persist through the (fast, local) load so the list never
            collapses to a "Loading…" line and snaps back. -->
       {#key currentPath}
-        <ul class="entries" class:stale={loading} in:fade={{ duration: 120 }}>
+        <ul class="entries" class:stale={loading} in:introFade>
           {#each entries as entry (entry.relPath)}
           <li>
             <button

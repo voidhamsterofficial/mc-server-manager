@@ -17,6 +17,7 @@
     MEMORY_STEP_MB,
     SERVER_NAME_MAX_LENGTH,
   } from "../../util/constants";
+  import { serverAddressStore } from "../../stores/serverAddress.svelte";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
   import Button from "../../components/Button.svelte";
@@ -255,6 +256,8 @@
     try {
       const updates: Property[] = Object.entries(edited).map(([key, value]) => ({ key, value }));
       await api.saveServerProperties(server.id, updates);
+      // server-port lives in here, and the dashboard shows it.
+      serverAddressStore.markChanged(server.id);
       await loadProperties(server.id);
       toastsStore.success("server.properties saved — restart to apply");
     } catch (error) {

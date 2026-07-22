@@ -30,13 +30,13 @@ class UnsavedEditsStore {
     if (this.description === null) {
       return true;
     }
-    const discard = await confirmStore.ask({
+    const choice = await confirmStore.ask({
       title: "Discard unsaved changes?",
       body: `You've edited ${this.description} without saving. Leaving now throws those changes away.`,
       confirmLabel: "Discard changes",
       variant: "danger",
     });
-    if (!discard) {
+    if (choice !== "confirm") {
       return false;
     }
     this.clear();

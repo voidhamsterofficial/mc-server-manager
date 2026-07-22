@@ -4,6 +4,7 @@
   import { api, type ServerConfig } from "../ipc/api";
   import { serversStore } from "../stores/servers.svelte";
   import { statsStore } from "../stores/stats.svelte";
+  import { startServerWithPortCheck } from "../util/startServer";
   import { toastsStore } from "../stores/toasts.svelte";
   import { formatMemory } from "../util/format";
   import StatusBlob from "./StatusBlob.svelte";
@@ -44,7 +45,7 @@
     busy = true;
     try {
       if (canStart) {
-        await api.startServer(server.id);
+        await startServerWithPortCheck(server);
       } else if (canStop) {
         await api.stopServer(server.id);
       }

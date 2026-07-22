@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { fade } from "svelte/transition";
   import { Plus, Clock, Pencil, Trash2 } from "@lucide/svelte";
+  import { createIntroFade } from "../../util/transitions";
   import { api, type ScheduledTask, type ServerConfig, type TaskAction } from "../../ipc/api";
   import { toastsStore } from "../../stores/toasts.svelte";
   import { formatDateTime } from "../../util/format";
@@ -12,6 +12,8 @@
   }
 
   let { server }: Props = $props();
+
+  const introFade = createIntroFade();
 
   const CRON_PRESETS = [
     { label: "Every 15 minutes", cron: "*/15 * * * *" },
@@ -30,6 +32,9 @@
   ] as const;
 
   let tasks = $state<ScheduledTask[]>([]);
+  // Holds back the empty state until the first load lands, so opening the tab
+  // doesn't flash "Nothing scheduled" before the real list arrives.
+  let hasLoadedTasks = $state(false);
   let editing = $state(false);
   let editingId = $state("");
   let formName = $state("");
@@ -58,6 +63,7 @@
   async function loadTasks() {
     try {
       tasks = await api.listTasks();
+      hasLoadedTasks = true;
     } catch (error) {
       toastsStore.error(String(error));
     }
@@ -174,7 +180,7 @@
   </div>
 
   {#if editing}
-    <form class="editor" onsubmit={saveTask} in:fade={{ duration: 120 }}>
+    <form class="editor" onsubmit={saveTask} in:introFade>
       <div class="editor-grid">
         <label>
           <span>Name</span>
@@ -229,14 +235,16 @@
   {/if}
 
   {#if myTasks.length === 0 && !editing}
-    <div class="empty" in:fade={{ duration: 120 }}>
-      <span class="face"><Clock size={40} color={FEATURE_COLOR.scheduler} /></span>
-      <p>Nothing scheduled — add a nightly backup or a friendly hourly broadcast!</p>
-    </div>
+    {#if hasLoadedTasks}
+      <div class="empty" in:introFade>
+        <span class="face"><Clock size={40} color={FEATURE_COLOR.scheduler} /></span>
+        <p>Nothing scheduled — add a nightly backup or a friendly hourly broadcast!</p>
+      </div>
+    {/if}
   {:else}
     <ul class="task-list">
       {#each myTasks as task (task.id)}
-        <li class:disabled={!task.enabled} in:fade={{ duration: 120 }}>
+        <li class:disabled={!task.enabled} in:introFade>
           <label class="toggle" title={task.enabled ? "Disable" : "Enable"}>
             <input type="checkbox" checked={task.enabled} onchange={() => toggleTask(task)} />
           </label>

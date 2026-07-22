@@ -129,6 +129,13 @@ export interface Property {
   value: string;
 }
 
+/** A running server already listening on the port another one wants. */
+export interface PortConflict {
+  serverId: string;
+  serverName: string;
+  port: string;
+}
+
 export interface BackupInfo {
   fileName: string;
   sizeBytes: number;
@@ -264,6 +271,10 @@ export const api = {
     invoke<ServerConfig>("import_server", { request }),
   deleteServer: (serverId: string) => invoke<void>("delete_server", { serverId }),
   startServer: (serverId: string) => invoke<void>("start_server", { serverId }),
+  portConflict: (serverId: string) =>
+    invoke<PortConflict | null>("port_conflict", { serverId }),
+  stopOtherAndStart: (runningServerId: string, serverId: string) =>
+    invoke<void>("stop_other_and_start", { runningServerId, serverId }),
   stopServer: (serverId: string) => invoke<void>("stop_server", { serverId }),
   killServer: (serverId: string) => invoke<void>("kill_server", { serverId }),
   sendServerCommand: (serverId: string, command: string) =>
