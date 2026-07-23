@@ -76,6 +76,8 @@
       edited["motd"] ?? properties.find((property) => property.key === "motd")?.value ?? "",
     ),
   );
+  let savingMotd = $state(false);
+  const motdDirty = $derived(edited["motd"] !== undefined);
 
   // Re-seed the form only when the selected server actually changes — not on
   // every serversStore.refresh(), which hands us a fresh object with the same
@@ -326,6 +328,36 @@
       savingProperties = false;
     }
   }
+
+  /** Saves just the MOTD, leaving any other pending server.properties edits
+   *  untouched — the MOTD lives in the same `edited` map, so it clears only
+   *  that one key and updates the local baseline it renders from. */
+  async function saveMotd(): Promise<boolean> {
+    const motdProperty = edited["motd"];
+    if (motdProperty === undefined) {
+      return true;
+    }
+    savingMotd = true;
+    try {
+      await api.saveServerProperties(server.id, [{ key: "motd", value: motdProperty }]);
+      const existing = properties.find((property) => property.key === "motd");
+      properties = existing
+        ? properties.map((property) =>
+            property.key === "motd" ? { ...property, value: motdProperty } : property,
+          )
+        : [...properties, { key: "motd", value: motdProperty }];
+      const remaining = { ...edited };
+      delete remaining["motd"];
+      edited = remaining;
+      toastsStore.success("MOTD saved — restart to apply");
+      return true;
+    } catch (error) {
+      toastsStore.error(String(error));
+      return false;
+    } finally {
+      savingMotd = false;
+    }
+  }
 </script>
 
 <div class="settings-tab">
@@ -462,7 +494,10 @@
             value={motdValue}
             onchange={(text) => setValue("motd", encodeMotdProperty(text))}
           />
-          <p class="hint">Saves together with the server.properties changes below.</p>
+          <div class="card-actions">
+            <span class="hint">Also saved with server.properties below. Restart to apply.</span>
+            <Button disabled={savingMotd || !motdDirty} onclick={saveMotd}>Save MOTD</Button>
+          </div>
         </div>
       </div>
     </section>

@@ -44,6 +44,19 @@ pub enum TaskAction {
     Stop,
 }
 
+impl TaskAction {
+    /// Whether the action only makes sense against a live server process.
+    /// Sending a command to, stopping, or restarting a stopped server has
+    /// nothing to act on; a backup or a start is fine (or only useful) while
+    /// it's down.
+    fn requires_running_server(&self) -> bool {
+        match self {
+            TaskAction::Command { .. } | TaskAction::Stop | TaskAction::Restart => true,
+            TaskAction::Backup | TaskAction::Start => false,
+        }
+    }
+}
+
 pub fn load_tasks(db: &Db) -> AppResult<Vec<ScheduledTask>> {
     match db.get_kv(TASKS_KEY)? {
         Some(json) => Ok(serde_json::from_str(&json)?),
@@ -119,9 +132,42 @@ fn is_due(cron_expression: &str, since: DateTime<Local>, now: DateTime<Local>) -
 }
 
 pub async fn execute_task(app: AppHandle, task: ScheduledTask) {
+    if task.action.requires_running_server() && !server_is_running(&app, &task.server_id).await {
+        // Nothing to act on — skip quietly rather than failing. Backup and
+        // Start tasks still fire while the server is stopped.
+        log::info!(
+            "skipping scheduled task '{}' — the server isn't running",
+            task.name
+        );
+        return;
+    }
+
     let outcome = run_action(&app, &task).await;
     if let Err(error) = outcome {
         log::warn!("scheduled task '{}' failed: {error}", task.name);
+    }
+}
+
+async fn server_is_running(app: &AppHandle, server_id: &str) -> bool {
+    let state = app.state::<AppState>();
+    let is_running = process::is_running(&state.running, server_id).await;
+    is_running
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_command_stop_and_restart_need_a_running_server() {
+        let command = TaskAction::Command {
+            command: "list".to_string(),
+        };
+        assert!(command.requires_running_server());
+        assert!(TaskAction::Stop.requires_running_server());
+        assert!(TaskAction::Restart.requires_running_server());
+        assert!(!TaskAction::Backup.requires_running_server());
+        assert!(!TaskAction::Start.requires_running_server());
     }
 }
 
