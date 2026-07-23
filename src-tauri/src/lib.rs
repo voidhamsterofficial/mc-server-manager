@@ -24,6 +24,10 @@ pub fn run() {
         default_panic(info);
     }));
 
+    // Must happen before anything spawns a child process: a JVM that fails to
+    // load its own libraries would otherwise block on a modal Windows dialog.
+    platform::suppress_hard_error_dialogs();
+
     let build_result = tauri::Builder::default()
         .plugin(
             // Rolling log file in the OS log dir, plus stdout during dev.

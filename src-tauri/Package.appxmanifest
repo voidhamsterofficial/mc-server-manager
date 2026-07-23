@@ -29,7 +29,7 @@
   <Identity
     Name="Voidhamsterofficial.ServerForge"
     Publisher="CN=36895946-F56A-4DAC-B627-D2FE8038FDEF"
-    Version="1.11.0.0" />
+    Version="1.13.1.0" />
 
   <Properties>
     <DisplayName>ServerForge</DisplayName>

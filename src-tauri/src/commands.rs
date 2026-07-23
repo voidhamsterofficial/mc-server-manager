@@ -26,6 +26,7 @@ use crate::servers::{self, CreateServerRequest, Loader, ServerConfig, ServerStat
 use crate::storage::backups::{self, BackupInfo};
 use crate::storage::db;
 use crate::storage::files;
+use crate::storage::fsutil::remove_dir_best_effort;
 use crate::storage::properties::{self, Property};
 
 /// The subset of app-wide state exposed to the frontend as "Settings".
@@ -1663,12 +1664,4 @@ pub async fn preview_next_run(cron: String) -> AppResult<Option<i64>> {
     scheduler::validate_cron(&cron)?;
     let next = scheduler::next_occurrence_unix(&cron);
     Ok(next)
-}
-
-/// Best-effort cleanup of a half-created server directory; the original
-/// installation error is what the user needs to see, not a cleanup failure.
-fn remove_dir_best_effort(dir: &std::path::Path) {
-    if let Err(error) = std::fs::remove_dir_all(dir) {
-        log::warn!("failed to clean up {}: {error}", dir.display());
-    }
 }

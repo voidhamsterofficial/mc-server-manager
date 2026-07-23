@@ -1,6 +1,6 @@
 [package]
 name = "mc-server-manager"
-version = "1.13.0"
+version = "1.13.1"
 description = "ServerForge — a cute, fast, cross-platform game server manager"
 authors = ["Void"]
 edition = "2021"

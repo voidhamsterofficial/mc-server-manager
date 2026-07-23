@@ -101,6 +101,17 @@ pub async fn resolve_for(required_major: u32, managed_java_dir: &Path) -> AppRes
     Err(AppError::NoSuitableJava { required_major })
 }
 
+/// Whether this executable really is a working Java.
+///
+/// Worth the ~100ms before a launch that takes tens of seconds: it is the only
+/// way to tell a runtime that starts from one that dies inside the OS loader,
+/// which otherwise reaches the user as a server that crashed with an empty
+/// console and no explanation.
+pub async fn is_usable(executable: &Path) -> bool {
+    let probed = probe_java(executable).await;
+    probed.is_some()
+}
+
 fn java_executable_name() -> &'static str {
     if cfg!(windows) {
         "java.exe"
@@ -172,19 +183,37 @@ fn javas_under(vendor_dir: &Path) -> Vec<PathBuf> {
 /// Runs `java -version` and parses the reported major version. Returns
 /// `None` for candidates that don't exist or don't behave like a JVM.
 async fn probe_java(executable: &Path) -> Option<JavaInstall> {
+    // Most candidates are guesses at vendor layouts that simply aren't there.
+    // Only the bare `java`/`java.exe` is relative, and that one needs a PATH
+    // lookup to be resolved at all.
+    if executable.is_absolute() && !executable.is_file() {
+        return None;
+    }
+
     let mut command = tokio::process::Command::new(executable);
     command.arg("-version");
     crate::platform::hide_console_window(&mut command);
 
     let output_future = command.output();
-    let output = tokio::time::timeout(VERSION_PROBE_TIMEOUT, output_future)
-        .await
-        .ok()?
-        .ok()?;
+    let Ok(run_result) = tokio::time::timeout(VERSION_PROBE_TIMEOUT, output_future).await else {
+        log::warn!("timed out probing Java at {}", executable.display());
+        return None;
+    };
+    let output = run_result.ok()?;
 
     // `java -version` prints to stderr.
     let version_text = String::from_utf8_lossy(&output.stderr);
-    let major_version = parse_major_version(&version_text)?;
+    let Some(major_version) = parse_major_version(&version_text) else {
+        // A runtime that is present but won't run — a half-unpacked or
+        // partly-uninstalled JDK whose `java.exe` can't load its own
+        // libraries. Skipping it lets a working one be found or downloaded.
+        log::warn!(
+            "ignoring unusable Java at {}: `java -version` {}",
+            executable.display(),
+            output.status
+        );
+        return None;
+    };
     let resolved_path = resolve_executable_path(executable);
 
     let install = JavaInstall {

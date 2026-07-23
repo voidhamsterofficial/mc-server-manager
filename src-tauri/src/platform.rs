@@ -11,6 +11,34 @@ pub fn hide_console_window(command: &mut tokio::process::Command) {
 #[cfg(not(windows))]
 pub fn hide_console_window(_command: &mut tokio::process::Command) {}
 
+/// Stops Windows from showing a modal "the code execution cannot proceed"
+/// box when a process we launch fails to start — a broken or half-unpacked
+/// JDK, say, whose `java.exe` can't find `jli.dll`. Child processes inherit
+/// this mode, so one call at startup covers every JVM we spawn: they fail
+/// with an error exit code we can handle instead of hanging on a dialog the
+/// user has to dismiss. No-op elsewhere.
+#[cfg(windows)]
+pub fn suppress_hard_error_dialogs() {
+    /// `SEM_FAILCRITICALERRORS`: report the failure to the caller rather than
+    /// popping the system error box.
+    const SEM_FAILCRITICALERRORS: u32 = 0x0001;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn SetErrorMode(mode: u32) -> u32;
+    }
+
+    // SAFETY: `SetErrorMode` takes a plain flags word, touches no memory we
+    // own, and cannot fail — it only returns the previous mode, which we
+    // deliberately discard because nothing here restores it.
+    unsafe {
+        SetErrorMode(SEM_FAILCRITICALERRORS);
+    }
+}
+
+#[cfg(not(windows))]
+pub fn suppress_hard_error_dialogs() {}
+
 /// Ties a spawned server process to this app via a kill-on-close job object,
 /// so Windows reaps it even if the app is force-killed (crashes, or the dev
 /// watcher restarting a build). Without this, `kill_on_drop` never runs and

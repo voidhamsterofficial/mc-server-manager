@@ -31,6 +31,12 @@ pub enum AppError {
     #[error("no suitable Java installation found (need Java {required_major} or newer)")]
     NoSuitableJava { required_major: u32 },
 
+    #[error(
+        "the Java chosen for this server can't run: {path}. It looks damaged or partly \
+         uninstalled — clear it in Settings and ServerForge will find or download a working one."
+    )]
+    UnusableJava { path: String },
+
     #[error("downloaded file failed checksum verification: {file_name}")]
     ChecksumMismatch { file_name: String },
 

@@ -1,7 +1,7 @@
 //! Orchestration shared by the Tauri command layer and the scheduler (and,
 //! later, the remote web panel): start/stop/restart flows and backups.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
@@ -196,13 +196,29 @@ async fn launch_server(app: &AppHandle, server_id: &str) -> AppResult<()> {
         PathBuf::new()
     } else {
         match &config.java_path {
-            Some(explicit_path) => explicit_path.clone(),
+            Some(explicit_path) => verified_pinned_java(explicit_path).await?,
             None => resolve_or_download_java(app, &config).await?,
         }
     };
 
     let server_dir = state.server_dir(&config);
     process::start(app, &state.running, &config, &server_dir, &java_executable).await
+}
+
+/// A Java the user pinned in Settings is honoured as chosen — but checked
+/// first. Auto-resolved runtimes get skipped when they're broken and replaced
+/// by a download; a pinned one can't be silently swapped, so the next best
+/// thing is to say plainly that it doesn't work instead of launching a process
+/// that dies before it prints anything.
+async fn verified_pinned_java(explicit_path: &Path) -> AppResult<PathBuf> {
+    if java::is_usable(explicit_path).await {
+        return Ok(explicit_path.to_path_buf());
+    }
+
+    let unusable = AppError::UnusableJava {
+        path: explicit_path.display().to_string(),
+    };
+    Err(unusable)
 }
 
 /// Finds a suitable installed Java, or automatically downloads the required

@@ -21,3 +21,19 @@ pub fn atomic_write(path: &Path, contents: &[u8]) -> AppResult<()> {
     }
     Ok(())
 }
+
+/// Deletes a directory tree if it is there, logging rather than failing.
+///
+/// Only for scratch directories the caller can carry on without: a half-built
+/// server folder, a staging area, a runtime already replaced. Never call it on
+/// something a later step depends on — `remove_dir_all` can stop partway (a
+/// file locked by antivirus or a running process), and a partly deleted
+/// directory still exists and still looks usable to anything that finds it.
+pub fn remove_dir_best_effort(directory: &Path) {
+    if !directory.exists() {
+        return;
+    }
+    if let Err(error) = std::fs::remove_dir_all(directory) {
+        log::warn!("failed to clean up {}: {error}", directory.display());
+    }
+}
