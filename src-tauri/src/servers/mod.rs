@@ -9,6 +9,7 @@ pub mod address;
 pub mod scheduler;
 pub mod service;
 pub mod state;
+pub mod timed_backup;
 
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};

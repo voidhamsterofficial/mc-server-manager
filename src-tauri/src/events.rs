@@ -32,3 +32,7 @@ pub const BACKUP_PROGRESS: &str = "server:backup-progress";
 /// this to clear its in-progress state — without it a failed backup would
 /// leave the progress bar stuck on screen forever.
 pub const BACKUP_FAILED: &str = "server:backup-failed";
+
+/// A scheduled stop-and-backup countdown started, was cancelled, or reached
+/// zero: [`crate::servers::timed_backup::TimedBackupEvent`].
+pub const BACKUP_TIMED: &str = "server:backup-timed";

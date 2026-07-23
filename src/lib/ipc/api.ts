@@ -142,6 +142,23 @@ export interface BackupInfo {
   createdAtUnix: number;
 }
 
+/** Asks the backend to stop a running server after a delay, back it up, and
+ *  optionally start it again. */
+export interface TimedBackupRequest {
+  /** Said in-game when the countdown starts. Blank sends nothing. */
+  message: string;
+  delaySeconds: number;
+  restartWhenDone: boolean;
+}
+
+/** A stop-and-backup countdown currently running for a server. */
+export interface PendingTimedBackup {
+  serverId: string;
+  /** The UI ticks its own clock from this rather than polling the backend. */
+  stopsAtUnix: number;
+  restartWhenDone: boolean;
+}
+
 export type TaskAction =
   | { type: "command"; command: string }
   | { type: "restart" }
@@ -377,6 +394,11 @@ export const api = {
   saveServerProperties: (serverId: string, updates: Property[]) =>
     invoke<void>("save_server_properties", { serverId, updates }),
   createBackup: (serverId: string) => invoke<BackupInfo>("create_backup", { serverId }),
+  scheduleTimedBackup: (serverId: string, request: TimedBackupRequest) =>
+    invoke<PendingTimedBackup>("schedule_timed_backup", { serverId, request }),
+  cancelTimedBackup: (serverId: string) => invoke<void>("cancel_timed_backup", { serverId }),
+  timedBackupStatus: (serverId: string) =>
+    invoke<PendingTimedBackup | null>("timed_backup_status", { serverId }),
   listBackups: (serverId: string) => invoke<BackupInfo[]>("list_backups", { serverId }),
   restoreBackup: (serverId: string, fileName: string) =>
     invoke<void>("restore_backup", { serverId, fileName }),

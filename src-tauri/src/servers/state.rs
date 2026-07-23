@@ -18,6 +18,7 @@ use crate::error::AppResult;
 use crate::players::roster::RosterStore;
 use crate::process::RunningMap;
 use crate::servers::scheduler::{self, ScheduledTask};
+use crate::servers::timed_backup::TimedBackupHandle;
 use crate::servers::{self, ServerConfig, ServerRegistry};
 use crate::storage::db::Db;
 use crate::storage::settings;
@@ -56,6 +57,10 @@ pub struct AppState {
     /// without a clean run in between. Caps a crash loop; cleared on a manual
     /// start or a clean stop.
     pub crash_restarts: Mutex<HashMap<String, u32>>,
+    /// server_id -> a running "stop, back up, maybe start again" countdown.
+    /// Removing an entry drops its cancel sender, which is what calls the
+    /// countdown off.
+    pub timed_backups: Mutex<HashMap<String, TimedBackupHandle>>,
     /// Set while the app is closing, so a server going down on the way out
     /// isn't resurrected into an orphan.
     pub shutting_down: AtomicBool,
@@ -102,6 +107,7 @@ impl AppState {
             forwarded: Mutex::new(HashMap::new()),
             marketplace_cache: MarketplaceCache::new(),
             crash_restarts: Mutex::new(HashMap::new()),
+            timed_backups: Mutex::new(HashMap::new()),
             shutting_down: AtomicBool::new(false),
             db,
             data_dir,

@@ -365,7 +365,7 @@ fn backup_progress_reporter(app: AppHandle, server_id: String) -> backups::Progr
     Box::new(reporter)
 }
 
-async fn wait_until_stopped(app: &AppHandle, server_id: &str) -> AppResult<()> {
+pub(crate) async fn wait_until_stopped(app: &AppHandle, server_id: &str) -> AppResult<()> {
     let state = app.state::<AppState>();
     let poll_interval = Duration::from_secs(1);
     let attempts = RESTART_WAIT.as_secs();

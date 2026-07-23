@@ -21,6 +21,7 @@ use crate::servers::address;
 use crate::servers::scheduler::{self, ScheduledTask};
 use crate::servers::service;
 use crate::servers::state::AppState;
+use crate::servers::timed_backup::{self, PendingTimedBackup, TimedBackupRequest};
 use crate::servers::{self, CreateServerRequest, Loader, ServerConfig, ServerStatus};
 use crate::storage::backups::{self, BackupInfo};
 use crate::storage::db;
@@ -1521,6 +1522,31 @@ pub async fn stop_other_and_start(
 #[tauri::command]
 pub async fn create_backup(app: AppHandle, server_id: String) -> AppResult<BackupInfo> {
     service::create_backup(&app, &server_id).await
+}
+
+/// Starts a countdown to stop the server, back it up, and optionally start it
+/// again — the Backups tab's answer to backing up a running server.
+#[tauri::command]
+pub async fn schedule_timed_backup(
+    app: AppHandle,
+    server_id: String,
+    request: TimedBackupRequest,
+) -> AppResult<PendingTimedBackup> {
+    timed_backup::schedule(&app, &server_id, request).await
+}
+
+#[tauri::command]
+pub async fn cancel_timed_backup(app: AppHandle, server_id: String) -> AppResult<()> {
+    timed_backup::cancel(&app, &server_id).await
+}
+
+#[tauri::command]
+pub async fn timed_backup_status(
+    app: AppHandle,
+    server_id: String,
+) -> AppResult<Option<PendingTimedBackup>> {
+    let pending = timed_backup::pending(&app, &server_id).await;
+    Ok(pending)
 }
 
 #[tauri::command]

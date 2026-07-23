@@ -1,15 +1,22 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { Folder, Gift, Archive, Undo2, Trash2 } from "@lucide/svelte";
+  import { Folder, Gift, Archive, Undo2, Trash2, Clock, Power } from "@lucide/svelte";
   import { createIntroFade } from "../../util/transitions";
-  import { api, resolveBackupsDir, type BackupInfo, type ServerConfig } from "../../ipc/api";
-  import { onBackupCreated } from "../../ipc/events";
+  import {
+    api,
+    resolveBackupsDir,
+    type BackupInfo,
+    type PendingTimedBackup,
+    type ServerConfig,
+  } from "../../ipc/api";
+  import { onBackupCreated, onTimedBackup } from "../../ipc/events";
   import { backupsStore } from "../../stores/backups.svelte";
   import { serversStore } from "../../stores/servers.svelte";
   import { toastsStore } from "../../stores/toasts.svelte";
-  import { formatFileSize, formatDateTime } from "../../util/format";
+  import { formatFileSize, formatDateTime, formatUptime } from "../../util/format";
   import { FEATURE_COLOR } from "../../util/features";
   import Button from "../../components/Button.svelte";
+  import Modal from "../../components/Modal.svelte";
   import ProgressBar from "../../components/ProgressBar.svelte";
 
   interface Props {
@@ -36,6 +43,75 @@
   const backupFraction = $derived(backupsStore.fractionOf(server.id));
   const isBusy = $derived(working || isBackingUp);
 
+  // --- Stop-and-back-up countdown -----------------------------------------
+  // Zipping a world the server is still writing to can capture half-finished
+  // region files, so a running server is stopped first. Players get a warning
+  // and a countdown rather than being dropped mid-sentence.
+
+  const DELAY_UNIT_SECONDS = { minutes: 60, hours: 3600, days: 86400 };
+  type DelayUnit = keyof typeof DELAY_UNIT_SECONDS;
+
+  let scheduleOpen = $state(false);
+  let stopMessage = $state("Server going down shortly for a backup.");
+  let delayAmount = $state(10);
+  let delayUnit = $state<DelayUnit>("minutes");
+  let restartWhenDone = $state(true);
+  let scheduling = $state(false);
+
+  /** The countdown the backend is running, or null when none is. Lives on the
+   *  backend so it survives leaving the tab; this is just the mirror. */
+  let pending = $state<PendingTimedBackup | null>(null);
+  let nowUnix = $state(Math.floor(Date.now() / 1000));
+
+  const delaySeconds = $derived(Math.max(1, Math.round(delayAmount)) * DELAY_UNIT_SECONDS[delayUnit]);
+  const secondsUntilStop = $derived(
+    pending === null ? 0 : Math.max(0, pending.stopsAtUnix - nowUnix),
+  );
+
+  // Tick only while something is actually counting down.
+  $effect(() => {
+    if (pending === null) {
+      return;
+    }
+    const timer = setInterval(() => (nowUnix = Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(timer);
+  });
+
+  function openBackup() {
+    if (isStopped) {
+      void createBackup();
+      return;
+    }
+    scheduleOpen = true;
+  }
+
+  async function confirmSchedule() {
+    scheduling = true;
+    try {
+      pending = await api.scheduleTimedBackup(server.id, {
+        message: stopMessage.trim(),
+        delaySeconds,
+        restartWhenDone,
+      });
+      scheduleOpen = false;
+      toastsStore.success("Players warned — the server stops when the timer runs out");
+    } catch (error) {
+      toastsStore.error(String(error));
+    } finally {
+      scheduling = false;
+    }
+  }
+
+  async function cancelSchedule() {
+    try {
+      await api.cancelTimedBackup(server.id);
+      pending = null;
+      toastsStore.show("Scheduled backup called off");
+    } catch (error) {
+      toastsStore.error(String(error));
+    }
+  }
+
   // Re-list only when the folder we're showing actually changes — either a
   // different server, or the same one after its backups location was edited
   // in the Settings tab. serversStore.refresh() hands us a fresh object with
@@ -52,6 +128,12 @@
   });
 
   onMount(() => {
+    // Pick up a countdown that was already running before this tab opened.
+    api
+      .timedBackupStatus(server.id)
+      .then((found) => (pending = found))
+      .catch(() => (pending = null));
+
     // Refresh when a backup finishes elsewhere (e.g. right-click "Back up
     // now" while this tab was already open, or a scheduled backup).
     const unlisten = onBackupCreated((serverId) => {
@@ -59,8 +141,14 @@
         loadBackups(server.id);
       }
     });
+    const unlistenTimed = onTimedBackup((event) => {
+      if (event.serverId === server.id) {
+        pending = event.pending;
+      }
+    });
     return () => {
       unlisten.then((off) => off());
+      unlistenTimed.then((off) => off());
     };
   });
 
@@ -134,21 +222,34 @@
     <div class="head-text">
       <p class="hint">
         Backups zip the whole server folder.
-        {#if !isStopped}A running server is flushed with <code>save-all</code> first.{/if}
+        {#if !isStopped}The server is stopped first, so the world isn't zipped mid-write.{/if}
         Change the location in the Settings tab.
       </p>
       <code class="location" title={resolveBackupsDir(server)}>
         <Folder size={13} /> {resolveBackupsDir(server)}
       </code>
     </div>
-    <Button disabled={isBusy} onclick={createBackup}>
+    <Button disabled={isBusy || pending !== null} onclick={openBackup}>
       {#if isBusy}
         Working…
-      {:else}
+      {:else if isStopped}
         <Gift size={15} /> Back up now
+      {:else}
+        <Power size={15} /> Stop &amp; back up…
       {/if}
     </Button>
   </div>
+
+  {#if pending !== null}
+    <div class="countdown">
+      <Clock size={16} color={FEATURE_COLOR.backups} />
+      <span class="countdown-text">
+        Stopping in <strong>{formatUptime(secondsUntilStop)}</strong> to back up
+        {pending.restartWhenDone ? "— then starting again." : "— then staying stopped."}
+      </span>
+      <Button variant="ghost" onclick={cancelSchedule}>Cancel</Button>
+    </div>
+  {/if}
 
   {#if isBackingUp}
     <div class="progress">
@@ -214,7 +315,116 @@
   {/if}
 </div>
 
+<Modal
+  open={scheduleOpen}
+  title="Stop the server, then back up"
+  onclose={() => (scheduleOpen = false)}
+>
+  <p class="dialog-intro">
+    Backing up while the server is running can catch the world mid-write. Give
+    players a heads-up and a countdown, then it stops, backs up, and
+    {restartWhenDone ? "starts again" : "stays down"}.
+  </p>
+
+  <label class="field">
+    <span>Message to players</span>
+    <input type="text" bind:value={stopMessage} placeholder="Server going down shortly…" />
+  </label>
+
+  <label class="field">
+    <span>Stop after</span>
+    <div class="delay-row">
+      <input type="number" min="1" bind:value={delayAmount} />
+      <select bind:value={delayUnit}>
+        <option value="minutes">minutes</option>
+        <option value="hours">hours</option>
+        <option value="days">days</option>
+      </select>
+    </div>
+  </label>
+
+  <label class="checkbox">
+    <input type="checkbox" bind:checked={restartWhenDone} />
+    <span>Start the server again once the backup is done</span>
+  </label>
+
+  <div class="dialog-actions">
+    <Button variant="ghost" onclick={() => (scheduleOpen = false)}>Cancel</Button>
+    <Button disabled={scheduling} onclick={confirmSchedule}>
+      {scheduling ? "Scheduling…" : "Warn players & start countdown"}
+    </Button>
+  </div>
+</Modal>
+
 <style>
+  .countdown {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.7rem 0.9rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+
+  .countdown-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.88rem;
+    color: var(--text);
+  }
+
+  .dialog-intro {
+    margin: 0 0 1rem;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .delay-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .delay-row input {
+    width: 6rem;
+  }
+
+  .delay-row select {
+    flex: 1;
+  }
+
+  .checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .checkbox input {
+    width: 1.15rem;
+    height: 1.15rem;
+    accent-color: var(--accent);
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
   .backups-tab {
     display: flex;
     flex-direction: column;
@@ -265,13 +475,6 @@
   .progress-label {
     font-size: 0.8rem;
     color: var(--muted);
-  }
-
-  .hint code {
-    font-family: var(--font-mono);
-    background: var(--surface-2);
-    border-radius: 6px;
-    padding: 0.1em 0.4em;
   }
 
   .empty {

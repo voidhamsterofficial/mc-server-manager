@@ -1,7 +1,7 @@
 // Typed wrappers around the events the backend emits.
 
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { ServerStatus } from "./api";
+import type { PendingTimedBackup, ServerStatus } from "./api";
 
 export type LogLevel = "info" | "warn" | "error";
 
@@ -94,4 +94,17 @@ export function onBackupProgress(
  *  showing it as in progress. */
 export function onBackupFailed(handler: (serverId: string) => void): Promise<UnlistenFn> {
   return listen<string>("server:backup-failed", (event) => handler(event.payload));
+}
+
+/** A stop-and-backup countdown started, was cancelled, or reached zero.
+ *  `pending` is null once nothing is scheduled for that server any more. */
+export interface TimedBackupEvent {
+  serverId: string;
+  pending: PendingTimedBackup | null;
+}
+
+export function onTimedBackup(
+  handler: (event: TimedBackupEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<TimedBackupEvent>("server:backup-timed", (event) => handler(event.payload));
 }
