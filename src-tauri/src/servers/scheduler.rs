@@ -154,6 +154,22 @@ async fn server_is_running(app: &AppHandle, server_id: &str) -> bool {
     is_running
 }
 
+async fn run_action(app: &AppHandle, task: &ScheduledTask) -> AppResult<()> {
+    match &task.action {
+        TaskAction::Command { command } => {
+            let state = app.state::<AppState>();
+            process::send_command(&state.running, &task.server_id, command).await
+        }
+        TaskAction::Restart => service::restart_server(app, &task.server_id).await,
+        TaskAction::Backup => {
+            service::create_backup(app, &task.server_id).await?;
+            Ok(())
+        }
+        TaskAction::Start => service::start_server(app, &task.server_id).await,
+        TaskAction::Stop => service::stop_server(app, &task.server_id).await,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,21 +184,5 @@ mod tests {
         assert!(TaskAction::Restart.requires_running_server());
         assert!(!TaskAction::Backup.requires_running_server());
         assert!(!TaskAction::Start.requires_running_server());
-    }
-}
-
-async fn run_action(app: &AppHandle, task: &ScheduledTask) -> AppResult<()> {
-    match &task.action {
-        TaskAction::Command { command } => {
-            let state = app.state::<AppState>();
-            process::send_command(&state.running, &task.server_id, command).await
-        }
-        TaskAction::Restart => service::restart_server(app, &task.server_id).await,
-        TaskAction::Backup => {
-            service::create_backup(app, &task.server_id).await?;
-            Ok(())
-        }
-        TaskAction::Start => service::start_server(app, &task.server_id).await,
-        TaskAction::Stop => service::stop_server(app, &task.server_id).await,
     }
 }
